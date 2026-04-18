@@ -224,14 +224,16 @@ export default function LogStars({ showToast }: LogStarsProps) {
           </div>
         </div>
 
-        <button
-          className="btn btn-full"
-          style={{ background: isMaths ? 'var(--teal)' : 'var(--primary)', color: '#fff' }}
-          onClick={handleSave}
-          disabled={form.stars < 1 || !form.date}
-        >
-          {editingEntry ? 'Save Changes' : `Save — ${pluralStars(form.stars)}`}
-        </button>
+        <div style={{ position: 'sticky', bottom: 0, background: 'var(--surface)', paddingTop: 8, paddingBottom: 4 }}>
+          <button
+            className="btn btn-full"
+            style={{ background: isMaths ? 'var(--teal)' : 'var(--primary)', color: '#fff' }}
+            onClick={handleSave}
+            disabled={form.stars < 1 || !form.date}
+          >
+            {editingEntry ? 'Save Changes' : `Save — ${pluralStars(form.stars)}`}
+          </button>
+        </div>
       </Modal>
 
       <ConfirmDialog

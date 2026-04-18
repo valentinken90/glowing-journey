@@ -238,14 +238,16 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
           </div>
         </div>
 
-        <button
-          className="btn btn-full"
-          style={{ background: 'var(--red)', color: '#fff' }}
-          onClick={handleDeductSave}
-          disabled={!form.reason.trim() || form.stars < 1}
-        >
-          Deduct {pluralStars(form.stars)}
-        </button>
+        <div style={{ position: 'sticky', bottom: 0, background: 'var(--surface)', paddingTop: 8, paddingBottom: 4 }}>
+          <button
+            className="btn btn-full"
+            style={{ background: 'var(--red)', color: '#fff' }}
+            onClick={handleDeductSave}
+            disabled={!form.reason.trim() || form.stars < 1}
+          >
+            Deduct {pluralStars(form.stars)}
+          </button>
+        </div>
       </Modal>
 
       {/* Confirm deduction */}

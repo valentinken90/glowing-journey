@@ -614,6 +614,30 @@ input, textarea, select {
   box-shadow: var(--shadow-sm);
 }
 
+/* ─── Action panels (inline expandable) ─────────────────────────────────── */
+
+.action-panel {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 0;
+  animation: panelSlideDown 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes panelSlideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.action-panel-add {
+  border-top: 3px solid var(--primary);
+}
+
+.action-panel-deduct {
+  border-top: 3px solid var(--red);
+}
+
 /* ─── Activity list ──────────────────────────────────────────────────────── */
 
 .activity-list {

@@ -1369,7 +1369,7 @@ input, textarea, select {
 
 .session-type-toggle {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
 }
 
@@ -1398,6 +1398,12 @@ input, textarea, select {
   border-color: var(--teal);
   background: var(--teal-light);
   color: var(--teal);
+}
+
+.session-type-btn.active-chores {
+  border-color: var(--purple);
+  background: var(--purple-light);
+  color: var(--purple);
 }
 
 /* ─── Empty state ────────────────────────────────────────────────────────── */

@@ -12,15 +12,27 @@ interface LogStarsProps {
 type ActivePanel = 'add' | 'deduct' | null;
 
 function sessionIcon(type?: SessionType) {
-  return type === 'maths' ? '🔢' : '📖';
+  if (type === 'maths') return '🔢';
+  if (type === 'chores') return '🧹';
+  return '📖';
 }
 
 function sessionLabel(type?: SessionType) {
-  return type === 'maths' ? 'Maths' : 'Reading';
+  if (type === 'maths') return 'Maths';
+  if (type === 'chores') return 'Chores';
+  return 'Reading';
 }
 
 function defaultTitle(type?: SessionType) {
-  return type === 'maths' ? 'Maths session' : 'Reading session';
+  if (type === 'maths') return 'Maths session';
+  if (type === 'chores') return 'Chores';
+  return 'Reading session';
+}
+
+function sessionBtnColor(type: SessionType) {
+  if (type === 'maths') return 'var(--teal)';
+  if (type === 'chores') return 'var(--purple)';
+  return 'var(--primary)';
 }
 
 export default function LogStars({ showToast }: LogStarsProps) {
@@ -108,7 +120,9 @@ export default function LogStars({ showToast }: LogStarsProps) {
   });
 
   const isMaths = addForm.sessionType === 'maths';
+  const isChores = addForm.sessionType === 'chores';
   const isEditMaths = editForm.sessionType === 'maths';
+  const isEditChores = editForm.sessionType === 'chores';
 
   return (
     <div>
@@ -149,6 +163,10 @@ export default function LogStars({ showToast }: LogStarsProps) {
                   className={`session-type-btn${addForm.sessionType === 'maths' ? ' active-maths' : ''}`}
                   onClick={() => setAddForm(f => ({ ...f, sessionType: 'maths' }))}
                 >🔢 Maths</button>
+                <button
+                  className={`session-type-btn${addForm.sessionType === 'chores' ? ' active-chores' : ''}`}
+                  onClick={() => setAddForm(f => ({ ...f, sessionType: 'chores' }))}
+                >🧹 Chores</button>
               </div>
             </div>
 
@@ -163,13 +181,13 @@ export default function LogStars({ showToast }: LogStarsProps) {
 
             <div className="form-field">
               <label className="form-label" htmlFor="log-book">
-                {isMaths ? 'Topic (optional)' : 'Book Title (optional)'}
+                {isMaths ? 'Topic (optional)' : isChores ? 'Task (optional)' : 'Book Title (optional)'}
               </label>
               <input
                 id="log-book"
                 type="text"
                 className="form-input"
-                placeholder={isMaths ? 'e.g. Times tables, Fractions' : 'e.g. Charlie and the Chocolate Factory'}
+                placeholder={isMaths ? 'e.g. Times tables, Fractions' : isChores ? 'e.g. Tidied bedroom' : 'e.g. Charlie and the Chocolate Factory'}
                 value={addForm.bookTitle}
                 onChange={e => setAddForm(f => ({ ...f, bookTitle: e.target.value }))}
               />
@@ -180,7 +198,7 @@ export default function LogStars({ showToast }: LogStarsProps) {
               <textarea
                 id="log-note"
                 className="form-input form-textarea"
-                placeholder={isMaths ? 'e.g. Got all 7× tables right!' : 'e.g. Read two whole chapters!'}
+                placeholder={isMaths ? 'e.g. Got all 7× tables right!' : isChores ? 'e.g. Did it without being asked!' : 'e.g. Read two whole chapters!'}
                 value={addForm.note}
                 onChange={e => setAddForm(f => ({ ...f, note: e.target.value }))}
               />
@@ -201,7 +219,7 @@ export default function LogStars({ showToast }: LogStarsProps) {
 
           <button
             className="btn btn-full"
-            style={{ background: isMaths ? 'var(--teal)' : 'var(--primary)', color: '#fff' }}
+            style={{ background: sessionBtnColor(addForm.sessionType), color: '#fff' }}
             onClick={handleAddSave}
             disabled={addForm.stars < 1 || !addForm.date}
           >
@@ -321,6 +339,10 @@ export default function LogStars({ showToast }: LogStarsProps) {
                 className={`session-type-btn${editForm.sessionType === 'maths' ? ' active-maths' : ''}`}
                 onClick={() => setEditForm(f => ({ ...f, sessionType: 'maths' }))}
               >🔢 Maths</button>
+              <button
+                className={`session-type-btn${editForm.sessionType === 'chores' ? ' active-chores' : ''}`}
+                onClick={() => setEditForm(f => ({ ...f, sessionType: 'chores' }))}
+              >🧹 Chores</button>
             </div>
           </div>
 
@@ -347,13 +369,13 @@ export default function LogStars({ showToast }: LogStarsProps) {
 
           <div className="form-field">
             <label className="form-label" htmlFor="edit-book">
-              {isEditMaths ? 'Topic (optional)' : 'Book Title (optional)'}
+              {isEditMaths ? 'Topic (optional)' : isEditChores ? 'Task (optional)' : 'Book Title (optional)'}
             </label>
             <input
               id="edit-book"
               type="text"
               className="form-input"
-              placeholder={isEditMaths ? 'e.g. Times tables, Fractions' : 'e.g. Charlie and the Chocolate Factory'}
+              placeholder={isEditMaths ? 'e.g. Times tables, Fractions' : isEditChores ? 'e.g. Tidied bedroom' : 'e.g. Charlie and the Chocolate Factory'}
               value={editForm.bookTitle}
               onChange={e => setEditForm(f => ({ ...f, bookTitle: e.target.value }))}
             />
@@ -364,7 +386,7 @@ export default function LogStars({ showToast }: LogStarsProps) {
             <textarea
               id="edit-note"
               className="form-input form-textarea"
-              placeholder={isEditMaths ? 'e.g. Got all 7× tables right!' : 'e.g. Read two whole chapters!'}
+              placeholder={isEditMaths ? 'e.g. Got all 7× tables right!' : isEditChores ? 'e.g. Did it without being asked!' : 'e.g. Read two whole chapters!'}
               value={editForm.note}
               onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))}
             />
@@ -374,7 +396,7 @@ export default function LogStars({ showToast }: LogStarsProps) {
         <div style={{ position: 'sticky', bottom: 0, background: 'var(--surface)', paddingTop: 8, paddingBottom: 4 }}>
           <button
             className="btn btn-full"
-            style={{ background: isEditMaths ? 'var(--teal)' : 'var(--primary)', color: '#fff' }}
+            style={{ background: sessionBtnColor(editForm.sessionType), color: '#fff' }}
             onClick={handleEditSave}
             disabled={editForm.stars < 1 || !editForm.date}
           >

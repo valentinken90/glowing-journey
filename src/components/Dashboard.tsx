@@ -103,10 +103,14 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
   function activityIcon(item: ActivityItem) {
     if (item.type === 'redemption') return '🎁';
     if (item.type === 'deduction') return '⬇️';
-    return item.sessionType === 'maths' ? '🔢' : '📖';
+    if (item.sessionType === 'maths') return '🔢';
+    if (item.sessionType === 'chores') return '🧹';
+    return '📖';
   }
 
   const isMaths = addForm.sessionType === 'maths';
+  const isChores = addForm.sessionType === 'chores';
+  const addBtnColor = isMaths ? 'var(--teal)' : isChores ? 'var(--purple)' : 'var(--primary)';
 
   return (
     <div>
@@ -170,6 +174,10 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
                   className={`session-type-btn${addForm.sessionType === 'maths' ? ' active-maths' : ''}`}
                   onClick={() => setAddForm(f => ({ ...f, sessionType: 'maths' }))}
                 >🔢 Maths</button>
+                <button
+                  className={`session-type-btn${addForm.sessionType === 'chores' ? ' active-chores' : ''}`}
+                  onClick={() => setAddForm(f => ({ ...f, sessionType: 'chores' }))}
+                >🧹 Chores</button>
               </div>
             </div>
 
@@ -184,13 +192,13 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
 
             <div className="form-field">
               <label className="form-label" htmlFor="dash-book">
-                {isMaths ? 'Topic (optional)' : 'Book Title (optional)'}
+                {isMaths ? 'Topic (optional)' : isChores ? 'Task (optional)' : 'Book Title (optional)'}
               </label>
               <input
                 id="dash-book"
                 type="text"
                 className="form-input"
-                placeholder={isMaths ? 'e.g. Times tables' : 'e.g. Charlie and the Chocolate Factory'}
+                placeholder={isMaths ? 'e.g. Times tables' : isChores ? 'e.g. Tidied bedroom' : 'e.g. Charlie and the Chocolate Factory'}
                 value={addForm.bookTitle}
                 onChange={e => setAddForm(f => ({ ...f, bookTitle: e.target.value }))}
               />
@@ -201,7 +209,7 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
               <textarea
                 id="dash-note"
                 className="form-input form-textarea"
-                placeholder={isMaths ? 'e.g. Got all 7× tables right!' : 'e.g. Read two whole chapters!'}
+                placeholder={isMaths ? 'e.g. Got all 7× tables right!' : isChores ? 'e.g. Did it without being asked!' : 'e.g. Read two whole chapters!'}
                 value={addForm.note}
                 onChange={e => setAddForm(f => ({ ...f, note: e.target.value }))}
               />
@@ -222,7 +230,7 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
 
           <button
             className="btn btn-full"
-            style={{ background: isMaths ? 'var(--teal)' : 'var(--primary)', color: '#fff' }}
+            style={{ background: addBtnColor, color: '#fff' }}
             onClick={handleAddSave}
             disabled={addForm.stars < 1 || !addForm.date}
           >

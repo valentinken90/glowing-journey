@@ -100,8 +100,10 @@ export default function Stats() {
     const totalSessions = entries.length;
     const readingSessions = entries.filter(e => (e.sessionType ?? 'reading') === 'reading').length;
     const mathsSessions = entries.filter(e => e.sessionType === 'maths').length;
+    const choresSessions = entries.filter(e => e.sessionType === 'chores').length;
     const readingStars = entries.filter(e => (e.sessionType ?? 'reading') === 'reading').reduce((s, e) => s + e.stars, 0);
     const mathsStars = entries.filter(e => e.sessionType === 'maths').reduce((s, e) => s + e.stars, 0);
+    const choresStars = entries.filter(e => e.sessionType === 'chores').reduce((s, e) => s + e.stars, 0);
     const totalStars = entries.reduce((s, e) => s + e.stars, 0);
     const readingDays = new Set(entries.map(e => e.date)).size;
     const avgStarsPerSession = totalSessions > 0
@@ -180,8 +182,10 @@ export default function Stats() {
       totalSessions,
       readingSessions,
       mathsSessions,
+      choresSessions,
       readingStars,
       mathsStars,
+      choresStars,
       totalStars,
       readingDays,
       uniqueBooks,
@@ -293,6 +297,22 @@ export default function Stats() {
               </div>
               <span className="stat-bar-val">{stats.mathsStars}</span>
             </div>
+            {stats.choresSessions > 0 && <>
+              <div className="stat-bar-row">
+                <span className="stat-bar-label stat-bar-label-wide">🧹 Chores</span>
+                <div className="stat-bar-track">
+                  <div className="stat-bar-fill-purple" style={{ width: `${(stats.choresSessions / stats.totalSessions) * 100}%` }} />
+                </div>
+                <span className="stat-bar-val">{stats.choresSessions}</span>
+              </div>
+              <div className="stat-bar-row">
+                <span className="stat-bar-label stat-bar-label-wide" style={{ color: 'var(--text-faint)', fontSize: 11 }}>⭐ Chores stars</span>
+                <div className="stat-bar-track">
+                  <div className="stat-bar-fill-purple" style={{ width: `${stats.totalStars > 0 ? (stats.choresStars / stats.totalStars) * 100 : 0}%` }} />
+                </div>
+                <span className="stat-bar-val">{stats.choresStars}</span>
+              </div>
+            </>}
           </div>
         </div>
       )}

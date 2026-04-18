@@ -90,7 +90,11 @@ export default function History() {
   }
 
   function itemLabel(item: typeof timeline[number]) {
-    if (item.kind === 'entry') return item.sessionType === 'maths' ? '🔢 Maths' : '📖 Reading';
+    if (item.kind === 'entry') {
+      if (item.sessionType === 'maths') return '🔢 Maths';
+      if (item.sessionType === 'chores') return '🧹 Chores';
+      return '📖 Reading';
+    }
     if (item.kind === 'deduction') return '⬇️ Deducted';
     return '🎁 Redeemed';
   }

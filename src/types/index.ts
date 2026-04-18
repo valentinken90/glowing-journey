@@ -1,4 +1,4 @@
-export type SessionType = 'reading' | 'maths';
+export type SessionType = 'reading' | 'maths' | 'chores';
 
 export interface StarEntry {
   id: string;

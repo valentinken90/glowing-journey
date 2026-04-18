@@ -1,9 +1,10 @@
-import type { StarEntry, Reward, Redemption } from '../types';
+import type { StarEntry, Reward, Redemption, StarDeduction } from '../types';
 
 const KEYS = {
   ENTRIES: 'rs_entries',
   REWARDS: 'rs_rewards',
   REDEMPTIONS: 'rs_redemptions',
+  DEDUCTIONS: 'rs_deductions',
   SEEDED: 'rs_seeded',
 } as const;
 
@@ -33,6 +34,9 @@ export const storage = {
 
   loadRedemptions: () => load<Redemption[]>(KEYS.REDEMPTIONS, []),
   saveRedemptions: (redemptions: Redemption[]) => save(KEYS.REDEMPTIONS, redemptions),
+
+  loadDeductions: () => load<StarDeduction[]>(KEYS.DEDUCTIONS, []),
+  saveDeductions: (deductions: StarDeduction[]) => save(KEYS.DEDUCTIONS, deductions),
 
   hasSeeded: () => load<boolean>(KEYS.SEEDED, false),
   markSeeded: () => save(KEYS.SEEDED, true),

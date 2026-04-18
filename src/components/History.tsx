@@ -5,7 +5,7 @@ import { formatDate, formatDateShort } from '../utils/helpers';
 import type { HistoryView, SessionType } from '../types';
 
 export default function History() {
-  const { entries, redemptions, deleteRedemption } = useApp();
+  const { entries, redemptions, deductions, deleteRedemption } = useApp();
   const [view, setView] = useState<HistoryView>('timeline');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
@@ -13,7 +13,8 @@ export default function History() {
   const timeline = useMemo(() => {
     type TimelineItem =
       | { kind: 'entry'; id: string; date: string; createdAt: string; title: string; note?: string; stars: number; sessionType?: SessionType }
-      | { kind: 'redemption'; id: string; date: string; createdAt: string; name: string; stars: number };
+      | { kind: 'redemption'; id: string; date: string; createdAt: string; name: string; stars: number }
+      | { kind: 'deduction'; id: string; date: string; createdAt: string; reason: string; stars: number };
 
     const items: TimelineItem[] = [
       ...entries.map(e => ({
@@ -34,9 +35,17 @@ export default function History() {
         name: r.rewardName,
         stars: r.starCost,
       })),
+      ...deductions.map(d => ({
+        kind: 'deduction' as const,
+        id: d.id,
+        date: d.date,
+        createdAt: d.createdAt,
+        reason: d.reason,
+        stars: d.stars,
+      })),
     ];
     return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [entries, redemptions]);
+  }, [entries, redemptions, deductions]);
 
   // Daily grouped data
   const dailyGroups = useMemo(() => {
@@ -44,6 +53,7 @@ export default function History() {
       date: string;
       earned: number;
       redeemed: number;
+      deducted: number;
       items: typeof timeline;
     }
     const map = new Map<string, DayData>();
@@ -53,10 +63,12 @@ export default function History() {
         date: item.date,
         earned: 0,
         redeemed: 0,
+        deducted: 0,
         items: [],
       };
       if (item.kind === 'entry') existing.earned += item.stars;
-      else existing.redeemed += item.stars;
+      else if (item.kind === 'redemption') existing.redeemed += item.stars;
+      else existing.deducted += item.stars;
       existing.items.push(item);
       map.set(item.date, existing);
     }
@@ -70,6 +82,34 @@ export default function History() {
     const max = Math.max(1, ...days.map(d => d.earned));
     return days.map(d => ({ ...d, pct: (d.earned / max) * 100 }));
   }, [dailyGroups]);
+
+  function dotColor(kind: string) {
+    if (kind === 'entry') return 'var(--star)';
+    if (kind === 'deduction') return 'var(--red)';
+    return 'var(--purple)';
+  }
+
+  function itemLabel(item: typeof timeline[number]) {
+    if (item.kind === 'entry') return item.sessionType === 'maths' ? '🔢 Maths' : '📖 Reading';
+    if (item.kind === 'deduction') return '⬇️ Deducted';
+    return '🎁 Redeemed';
+  }
+
+  function itemTitle(item: typeof timeline[number]) {
+    if (item.kind === 'entry') return item.title;
+    if (item.kind === 'deduction') return item.reason;
+    return item.name;
+  }
+
+  function amountClass(kind: string) {
+    if (kind === 'entry') return 'history-amount history-amount-earn';
+    return 'history-amount history-amount-redeem';
+  }
+
+  function amountText(item: typeof timeline[number]) {
+    if (item.kind === 'entry') return `+${item.stars} ⭐`;
+    return `−${item.stars} ⭐`;
+  }
 
   return (
     <div>
@@ -111,14 +151,12 @@ export default function History() {
                 <div key={item.id} className="history-item">
                   <span
                     className="history-dot"
-                    style={{ background: item.kind === 'entry' ? 'var(--star)' : 'var(--purple)' }}
+                    style={{ background: dotColor(item.kind) }}
                   />
                   <div className="history-body">
-                    <p className="history-title">
-                      {item.kind === 'entry' ? item.title : item.name}
-                    </p>
+                    <p className="history-title">{itemTitle(item)}</p>
                     <p className="history-meta">
-                      {item.kind === 'entry' ? (item.sessionType === 'maths' ? '🔢 Maths' : '📖 Reading') : '🎁 Redeemed'} · {formatDateShort(item.date)}
+                      {itemLabel(item)} · {formatDateShort(item.date)}
                     </p>
                     {item.kind === 'entry' && item.note && (
                       <p className="history-note">"{item.note}"</p>
@@ -134,9 +172,10 @@ export default function History() {
                     )}
                   </div>
                   <span
-                    className={`history-amount ${item.kind === 'entry' ? 'history-amount-earn' : 'history-amount-redeem'}`}
+                    className={amountClass(item.kind)}
+                    style={item.kind === 'deduction' ? { color: 'var(--red)' } : undefined}
                   >
-                    {item.kind === 'entry' ? '+' : '−'}{item.stars} ⭐
+                    {amountText(item)}
                   </span>
                 </div>
               ))}
@@ -182,27 +221,28 @@ export default function History() {
                   <div key={day.date} className="day-group">
                     <div className="day-group-header">
                       <span className="day-group-date">{formatDate(day.date)}</span>
-                      <span className="day-group-total">+{day.earned} ⭐{day.redeemed > 0 ? ` −${day.redeemed} ⭐` : ''}</span>
+                      <span className="day-group-total">
+                        +{day.earned} ⭐
+                        {day.redeemed > 0 ? ` −${day.redeemed} ⭐` : ''}
+                        {day.deducted > 0 ? <span style={{ color: 'var(--red)' }}> ⬇️{day.deducted}</span> : ''}
+                      </span>
                     </div>
                     <div className="day-group-card">
                       {day.items.map(item => (
                         <div key={item.id} className="history-item">
                           <span
                             className="history-dot"
-                            style={{ background: item.kind === 'entry' ? 'var(--star)' : 'var(--purple)' }}
+                            style={{ background: dotColor(item.kind) }}
                           />
                           <div className="history-body">
-                            <p className="history-title">
-                              {item.kind === 'entry' ? item.title : item.name}
-                            </p>
-                            <p className="history-meta">
-                              {item.kind === 'entry' ? (item.sessionType === 'maths' ? '🔢 Maths' : '📖 Reading') : '🎁 Redeemed'}
-                            </p>
+                            <p className="history-title">{itemTitle(item)}</p>
+                            <p className="history-meta">{itemLabel(item)}</p>
                           </div>
                           <span
-                            className={`history-amount ${item.kind === 'entry' ? 'history-amount-earn' : 'history-amount-redeem'}`}
+                            className={amountClass(item.kind)}
+                            style={item.kind === 'deduction' ? { color: 'var(--red)' } : undefined}
                           >
-                            {item.kind === 'entry' ? '+' : '−'}{item.stars} ⭐
+                            {amountText(item)}
                           </span>
                         </div>
                       ))}

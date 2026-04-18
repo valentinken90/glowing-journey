@@ -10,6 +10,14 @@ export interface StarEntry {
   createdAt: string;   // ISO timestamp
 }
 
+export interface StarDeduction {
+  id: string;
+  stars: number;    // positive number — amount deducted
+  reason: string;   // required — why stars were removed
+  date: string;     // "YYYY-MM-DD"
+  createdAt: string;
+}
+
 export interface Reward {
   id: string;
   name: string;

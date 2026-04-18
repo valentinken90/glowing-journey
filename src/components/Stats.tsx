@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { todayStr, pluralStars } from '../utils/helpers';
 import type { StarEntry } from '../types';
+import LineChart from './LineChart';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ export function tagColor(tag: string) {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Stats() {
-  const { entries, redemptions } = useApp();
+  const { entries, redemptions, deductions } = useApp();
 
   const stats = useMemo(() => {
     const totalSessions = entries.length;
@@ -156,6 +157,25 @@ export default function Stats() {
     // Total redemptions
     const totalRedemptions = redemptions.length;
 
+    // Deductions
+    const totalDeductions = deductions.length;
+    const totalDeductedStars = deductions.reduce((s, d) => s + d.stars, 0);
+
+    // 30-day line chart data
+    const today = new Date();
+    const dailyStars = new Map<string, number>();
+    for (const e of entries) {
+      dailyStars.set(e.date, (dailyStars.get(e.date) ?? 0) + e.stars);
+    }
+    const last30: { label: string; value: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayLabel = `${d.getDate()}/${d.getMonth() + 1}`;
+      last30.push({ label: dayLabel, value: dailyStars.get(key) ?? 0 });
+    }
+
     return {
       totalSessions,
       readingSessions,
@@ -174,8 +194,11 @@ export default function Stats() {
       dowCounts,
       weeks,
       totalRedemptions,
+      totalDeductions,
+      totalDeductedStars,
+      last30,
     };
-  }, [entries, redemptions]);
+  }, [entries, redemptions, deductions]);
 
   if (entries.length === 0) {
     return (
@@ -217,6 +240,18 @@ export default function Stats() {
           <div className="streak-num">🏆 {stats.streakBest}</div>
           <div className="streak-label">Best streak</div>
         </div>
+      </div>
+
+      {/* ── 30-day line chart ── */}
+      <div className="stats-section">
+        <p className="stats-section-title">Stars — Last 30 Days 📈</p>
+        <LineChart
+          data={stats.last30}
+          color="var(--primary)"
+          areaColor="var(--primary)"
+          height={160}
+          showDots={false}
+        />
       </div>
 
       {/* ── Session type breakdown ── */}
@@ -294,6 +329,13 @@ export default function Stats() {
           <div className="stats-tile-val">{stats.totalRedemptions}</div>
           <div className="stats-tile-label">Rewards redeemed</div>
         </div>
+        {stats.totalDeductions > 0 && (
+          <div className="stats-tile" style={{ borderColor: 'var(--red-light)' }}>
+            <div className="stats-tile-icon">⬇️</div>
+            <div className="stats-tile-val" style={{ color: 'var(--red)' }}>{stats.totalDeductedStars}</div>
+            <div className="stats-tile-label">Stars deducted</div>
+          </div>
+        )}
       </div>
 
       {/* ── Weekly activity ── */}

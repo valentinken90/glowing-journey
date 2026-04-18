@@ -652,6 +652,10 @@ input, textarea, select {
   background: var(--purple-light);
 }
 
+.activity-icon-deduct {
+  background: var(--red-light);
+}
+
 .activity-body {
   flex: 1;
   min-width: 0;

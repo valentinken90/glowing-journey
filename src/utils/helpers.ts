@@ -1,5 +1,9 @@
+export function localDateStr(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr();
 }
 
 export function generateId(): string {
@@ -19,7 +23,7 @@ export function formatDate(dateStr: string): string {
 export function formatDateShort(dateStr: string): string {
   const d = new Date(`${dateStr}T12:00:00`);
   const today = todayStr();
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const yesterday = localDateStr(new Date(Date.now() - 86400000));
 
   if (dateStr === today) return 'Today';
   if (dateStr === yesterday) return 'Yesterday';

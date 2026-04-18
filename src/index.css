@@ -1291,6 +1291,47 @@ input, textarea, select {
   transition: width 0.4s ease;
 }
 
+.stat-bar-fill-red {
+  height: 100%;
+  background: linear-gradient(to right, var(--red), #FF9A9A);
+  border-radius: var(--radius-full);
+  min-width: 4px;
+  transition: width 0.4s ease;
+}
+
+/* ─── Time window pills ──────────────────────────────────────────────────── */
+
+.window-pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin-bottom: 16px;
+  padding-bottom: 2px;
+}
+.window-pills::-webkit-scrollbar { display: none; }
+
+.window-pill {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.window-pill.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
 .stat-bar-fill-primary {
   height: 100%;
   background: linear-gradient(to right, var(--primary), var(--star));

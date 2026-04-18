@@ -1,4 +1,4 @@
-import type { StarEntry, Reward, Redemption, StarDeduction } from '../types';
+import type { StarEntry, Reward, Redemption } from '../types';
 
 const KEYS = {
   ENTRIES: 'rs_entries',
@@ -25,6 +25,9 @@ function save<T>(key: string, data: T): void {
   }
 }
 
+// Legacy shape used only for migrating old deduction records
+interface LegacyDeduction { id: string; stars: number; reason: string; date: string; createdAt: string; }
+
 export const storage = {
   loadEntries: () => load<StarEntry[]>(KEYS.ENTRIES, []),
   saveEntries: (entries: StarEntry[]) => save(KEYS.ENTRIES, entries),
@@ -35,8 +38,8 @@ export const storage = {
   loadRedemptions: () => load<Redemption[]>(KEYS.REDEMPTIONS, []),
   saveRedemptions: (redemptions: Redemption[]) => save(KEYS.REDEMPTIONS, redemptions),
 
-  loadDeductions: () => load<StarDeduction[]>(KEYS.DEDUCTIONS, []),
-  saveDeductions: (deductions: StarDeduction[]) => save(KEYS.DEDUCTIONS, deductions),
+  loadDeductions: () => load<LegacyDeduction[]>(KEYS.DEDUCTIONS, []),
+  saveDeductions: (d: LegacyDeduction[]) => save(KEYS.DEDUCTIONS, d),
 
   hasSeeded: () => load<boolean>(KEYS.SEEDED, false),
   markSeeded: () => save(KEYS.SEEDED, true),

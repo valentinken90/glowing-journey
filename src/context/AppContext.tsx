@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import type { StarEntry, Reward, Redemption, StarDeduction } from '../types';
+import type { StarEntry, Reward, Redemption } from '../types';
 import { storage } from '../utils/storage';
 import { generateId, todayStr } from '../utils/helpers';
 
@@ -79,7 +79,6 @@ interface AppState {
   entries: StarEntry[];
   rewards: Reward[];
   redemptions: Redemption[];
-  deductions: StarDeduction[];
 }
 
 type Action =
@@ -90,9 +89,7 @@ type Action =
   | { type: 'UPDATE_REWARD'; payload: Reward }
   | { type: 'DELETE_REWARD'; payload: string }
   | { type: 'ADD_REDEMPTION'; payload: Redemption }
-  | { type: 'DELETE_REDEMPTION'; payload: string }
-  | { type: 'ADD_DEDUCTION'; payload: StarDeduction }
-  | { type: 'DELETE_DEDUCTION'; payload: string };
+  | { type: 'DELETE_REDEMPTION'; payload: string };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -125,13 +122,6 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         redemptions: state.redemptions.filter(r => r.id !== action.payload),
       };
-    case 'ADD_DEDUCTION':
-      return { ...state, deductions: [action.payload, ...state.deductions] };
-    case 'DELETE_DEDUCTION':
-      return {
-        ...state,
-        deductions: state.deductions.filter(d => d.id !== action.payload),
-      };
   }
 }
 
@@ -145,16 +135,31 @@ function initState(): AppState {
     storage.saveEntries(entries);
     storage.saveRewards(DEFAULT_REWARDS);
     storage.saveRedemptions([]);
-    storage.saveDeductions([]);
     storage.markSeeded();
-    return { entries, rewards: DEFAULT_REWARDS, redemptions: [], deductions: [] };
+    return { entries, rewards: DEFAULT_REWARDS, redemptions: [] };
+  }
+
+  // Migrate old StarDeduction records → negative StarEntry records
+  const loadedEntries = storage.loadEntries();
+  const oldDeductions = storage.loadDeductions();
+  if (oldDeductions.length > 0) {
+    const migrated: StarEntry[] = oldDeductions.map(d => ({
+      id: d.id,
+      date: d.date,
+      stars: -d.stars,
+      bookTitle: d.reason,
+      createdAt: d.createdAt,
+    }));
+    const allEntries = [...loadedEntries, ...migrated];
+    storage.saveEntries(allEntries);
+    storage.saveDeductions([]);
+    return { entries: allEntries, rewards, redemptions: storage.loadRedemptions() };
   }
 
   return {
-    entries: storage.loadEntries(),
+    entries: loadedEntries,
     rewards,
     redemptions: storage.loadRedemptions(),
-    deductions: storage.loadDeductions(),
   };
 }
 
@@ -164,7 +169,6 @@ interface AppContextValue {
   entries: StarEntry[];
   rewards: Reward[];
   redemptions: Redemption[];
-  deductions: StarDeduction[];
 
   availableStars: number;
   totalEarned: number;
@@ -183,9 +187,6 @@ interface AppContextValue {
 
   redeemReward: (reward: Reward) => boolean;
   deleteRedemption: (id: string) => void;
-
-  addDeduction: (data: Omit<StarDeduction, 'id' | 'createdAt'>) => void;
-  deleteDeduction: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -196,12 +197,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { storage.saveEntries(state.entries); }, [state.entries]);
   useEffect(() => { storage.saveRewards(state.rewards); }, [state.rewards]);
   useEffect(() => { storage.saveRedemptions(state.redemptions); }, [state.redemptions]);
-  useEffect(() => { storage.saveDeductions(state.deductions); }, [state.deductions]);
 
-  const totalEarned = state.entries.reduce((sum, e) => sum + e.stars, 0);
+  const totalEarned = state.entries.filter(e => e.stars > 0).reduce((sum, e) => sum + e.stars, 0);
   const totalRedeemed = state.redemptions.reduce((sum, r) => sum + r.starCost, 0);
-  const totalDeducted = state.deductions.reduce((sum, d) => sum + d.stars, 0);
-  const availableStars = totalEarned - totalRedeemed - totalDeducted;
+  const totalDeducted = Math.abs(state.entries.filter(e => e.stars < 0).reduce((sum, e) => sum + e.stars, 0));
+  const availableStars = state.entries.reduce((sum, e) => sum + e.stars, 0) - totalRedeemed;
   const todayStars = state.entries
     .filter(e => e.date === todayStr())
     .reduce((sum, e) => sum + e.stars, 0);
@@ -241,8 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (reward: Reward): boolean => {
       const current =
         state.entries.reduce((s, e) => s + e.stars, 0) -
-        state.redemptions.reduce((s, r) => s + r.starCost, 0) -
-        state.deductions.reduce((s, d) => s + d.stars, 0);
+        state.redemptions.reduce((s, r) => s + r.starCost, 0);
       if (current < reward.starCost) return false;
       dispatch({
         type: 'ADD_REDEMPTION',
@@ -257,19 +256,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       return true;
     },
-    [state.entries, state.redemptions, state.deductions]
+    [state.entries, state.redemptions]
   );
 
   const deleteRedemption = useCallback((id: string) => {
     dispatch({ type: 'DELETE_REDEMPTION', payload: id });
-  }, []);
-
-  const addDeduction = useCallback((data: Omit<StarDeduction, 'id' | 'createdAt'>) => {
-    dispatch({ type: 'ADD_DEDUCTION', payload: { ...data, id: generateId(), createdAt: new Date().toISOString() } });
-  }, []);
-
-  const deleteDeduction = useCallback((id: string) => {
-    dispatch({ type: 'DELETE_DEDUCTION', payload: id });
   }, []);
 
   return (
@@ -278,7 +269,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         entries: state.entries,
         rewards: state.rewards,
         redemptions: state.redemptions,
-        deductions: state.deductions,
         availableStars,
         totalEarned,
         totalRedeemed,
@@ -288,7 +278,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addEntry, updateEntry, deleteEntry,
         addReward, updateReward, deleteReward,
         redeemReward, deleteRedemption,
-        addDeduction, deleteDeduction,
       }}
     >
       {children}

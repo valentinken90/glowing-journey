@@ -9,23 +9,28 @@ interface DashboardProps {
   onNavigate: (tab: Tab) => void;
 }
 
-interface ActivityItem {
-  id: string;
-  type: 'entry' | 'redemption' | 'deduction';
-  sessionType?: SessionType;
-  title: string;
-  meta: string;
-  stars: number;
-  createdAt: string;
+type ActivePanel = 'add' | 'deduct' | null;
+
+function entryTitle(stars: number, bookTitle?: string, sessionType?: SessionType) {
+  if (stars < 0) return bookTitle ?? 'Stars removed';
+  if (bookTitle) return bookTitle;
+  if (sessionType === 'maths') return 'Maths session';
+  if (sessionType === 'chores') return 'Chores';
+  return 'Reading session';
 }
 
-type ActivePanel = 'add' | 'deduct' | null;
+function entryIcon(stars: number, sessionType?: SessionType) {
+  if (stars < 0) return '⬇️';
+  if (sessionType === 'maths') return '🔢';
+  if (sessionType === 'chores') return '🧹';
+  return '📖';
+}
 
 export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
   const {
     availableStars, totalEarned, totalDeducted, todayStars,
-    entries, redemptions, deductions,
-    addEntry, addDeduction,
+    entries, redemptions,
+    addEntry,
   } = useApp();
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
@@ -52,7 +57,7 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
       note: addForm.note.trim() || undefined,
     });
     setActivePanel(null);
-    const icon = addForm.sessionType === 'maths' ? '🔢' : '⭐';
+    const icon = addForm.sessionType === 'maths' ? '🔢' : addForm.sessionType === 'chores' ? '🧹' : '⭐';
     showToast(`${icon} ${pluralStars(addForm.stars)} added!`);
   };
 
@@ -62,51 +67,40 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
   };
 
   const handleDeductConfirm = () => {
-    addDeduction({ stars: deductForm.stars, reason: deductForm.reason.trim(), date: deductForm.date });
+    addEntry({
+      stars: -deductForm.stars,
+      bookTitle: deductForm.reason.trim(),
+      date: deductForm.date,
+    });
     setDeductConfirm(false);
     setActivePanel(null);
-    showToast(`⬇️ ${pluralStars(deductForm.stars)} deducted`);
+    showToast(`⬇️ ${pluralStars(deductForm.stars)} removed`);
   };
 
-  const recentActivity = useMemo((): ActivityItem[] => {
-    const items: ActivityItem[] = [
+  const recentActivity = useMemo(() => {
+    type Item = { id: string; kind: 'entry' | 'redemption'; title: string; meta: string; stars: number; sessionType?: SessionType; createdAt: string };
+    const items: Item[] = [
       ...entries.map(e => ({
         id: e.id,
-        type: 'entry' as const,
+        kind: 'entry' as const,
         sessionType: e.sessionType,
-        title: e.bookTitle ?? (e.sessionType === 'maths' ? 'Maths session' : 'Reading session'),
+        title: entryTitle(e.stars, e.bookTitle, e.sessionType),
         meta: formatDateShort(e.date),
         stars: e.stars,
         createdAt: e.createdAt,
       })),
       ...redemptions.map(r => ({
         id: r.id,
-        type: 'redemption' as const,
+        kind: 'redemption' as const,
         title: r.rewardName,
         meta: formatDateShort(r.date),
         stars: -r.starCost,
         createdAt: r.createdAt,
       })),
-      ...deductions.map(d => ({
-        id: d.id,
-        type: 'deduction' as const,
-        title: d.reason,
-        meta: formatDateShort(d.date),
-        stars: -d.stars,
-        createdAt: d.createdAt,
-      })),
     ];
     items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return items.slice(0, 6);
-  }, [entries, redemptions, deductions]);
-
-  function activityIcon(item: ActivityItem) {
-    if (item.type === 'redemption') return '🎁';
-    if (item.type === 'deduction') return '⬇️';
-    if (item.sessionType === 'maths') return '🔢';
-    if (item.sessionType === 'chores') return '🧹';
-    return '📖';
-  }
+  }, [entries, redemptions]);
 
   const isMaths = addForm.sessionType === 'maths';
   const isChores = addForm.sessionType === 'chores';
@@ -151,7 +145,7 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
           ⭐ Add Stars {activePanel === 'add' ? '▲' : '▼'}
         </button>
         <button
-          className={`quick-add-btn quick-add-secondary`}
+          className="quick-add-btn quick-add-secondary"
           style={activePanel === 'deduct' ? { background: 'var(--red-light)', color: 'var(--red)', borderColor: 'var(--red)' } : {}}
           onClick={() => togglePanel('deduct')}
         >
@@ -239,12 +233,12 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
         </div>
       )}
 
-      {/* Deduct stars panel */}
+      {/* Remove stars panel */}
       {activePanel === 'deduct' && (
         <div className="action-panel action-panel-deduct">
           <div className="stack stack-lg" style={{ marginBottom: 12 }}>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
-              Remove stars from the balance for bad behaviour.
+              Adds a negative entry that reduces the total balance.
             </p>
 
             <div className="form-field">
@@ -295,7 +289,7 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
       {/* Recent activity */}
       <div className="section-heading" style={{ marginTop: activePanel ? 20 : 0 }}>
         <h2 className="section-title">Recent Activity</h2>
-        {(entries.length > 0 || redemptions.length > 0 || deductions.length > 0) && (
+        {(entries.length > 0 || redemptions.length > 0) && (
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('history')}>
             See all
           </button>
@@ -312,8 +306,8 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
         <div className="activity-list">
           {recentActivity.map(item => (
             <div key={item.id} className="activity-item">
-              <div className={`activity-icon ${item.type === 'entry' ? 'activity-icon-star' : item.type === 'deduction' ? 'activity-icon-deduct' : 'activity-icon-redeem'}`}>
-                {activityIcon(item)}
+              <div className={`activity-icon ${item.kind === 'redemption' ? 'activity-icon-redeem' : item.stars < 0 ? 'activity-icon-deduct' : 'activity-icon-star'}`}>
+                {item.kind === 'redemption' ? '🎁' : entryIcon(item.stars, item.sessionType)}
               </div>
               <div className="activity-body">
                 <p className="activity-title">{item.title}</p>
@@ -327,11 +321,10 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
         </div>
       )}
 
-      {/* Confirm deduction */}
       <ConfirmDialog
         isOpen={deductConfirm}
         title="Remove Stars?"
-        message={`Remove ${pluralStars(deductForm.stars)} for "${deductForm.reason}"? This will reduce the available balance.`}
+        message={`Add −${pluralStars(deductForm.stars)} for "${deductForm.reason}"? This will reduce the available balance.`}
         confirmLabel="Yes, remove"
         confirmDanger
         onConfirm={handleDeductConfirm}

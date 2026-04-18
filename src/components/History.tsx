@@ -4,26 +4,31 @@ import ConfirmDialog from './ConfirmDialog';
 import { formatDate, formatDateShort } from '../utils/helpers';
 import type { HistoryView, SessionType } from '../types';
 
+function entryLabel(stars: number, sessionType?: SessionType) {
+  if (stars < 0) return '⬇️ Removed';
+  if (sessionType === 'maths') return '🔢 Maths';
+  if (sessionType === 'chores') return '🧹 Chores';
+  return '📖 Reading';
+}
+
 export default function History() {
-  const { entries, redemptions, deductions, deleteRedemption } = useApp();
+  const { entries, redemptions, deleteRedemption } = useApp();
   const [view, setView] = useState<HistoryView>('timeline');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // Merged, sorted timeline
   const timeline = useMemo(() => {
-    type TimelineItem =
+    type Item =
       | { kind: 'entry'; id: string; date: string; createdAt: string; title: string; note?: string; stars: number; sessionType?: SessionType }
-      | { kind: 'redemption'; id: string; date: string; createdAt: string; name: string; stars: number }
-      | { kind: 'deduction'; id: string; date: string; createdAt: string; reason: string; stars: number };
+      | { kind: 'redemption'; id: string; date: string; createdAt: string; name: string; stars: number };
 
-    const items: TimelineItem[] = [
+    const items: Item[] = [
       ...entries.map(e => ({
         kind: 'entry' as const,
         id: e.id,
         date: e.date,
         createdAt: e.createdAt,
         sessionType: e.sessionType,
-        title: e.bookTitle ?? (e.sessionType === 'maths' ? 'Maths session' : 'Reading session'),
+        title: e.stars < 0 ? (e.bookTitle ?? 'Stars removed') : (e.bookTitle ?? (e.sessionType === 'maths' ? 'Maths session' : e.sessionType === 'chores' ? 'Chores' : 'Reading session')),
         note: e.note,
         stars: e.stars,
       })),
@@ -35,84 +40,53 @@ export default function History() {
         name: r.rewardName,
         stars: r.starCost,
       })),
-      ...deductions.map(d => ({
-        kind: 'deduction' as const,
-        id: d.id,
-        date: d.date,
-        createdAt: d.createdAt,
-        reason: d.reason,
-        stars: d.stars,
-      })),
     ];
     return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [entries, redemptions, deductions]);
+  }, [entries, redemptions]);
 
-  // Daily grouped data
   const dailyGroups = useMemo(() => {
     interface DayData {
       date: string;
       earned: number;
-      redeemed: number;
       deducted: number;
+      redeemed: number;
       items: typeof timeline;
     }
     const map = new Map<string, DayData>();
-
     for (const item of timeline) {
-      const existing = map.get(item.date) ?? {
-        date: item.date,
-        earned: 0,
-        redeemed: 0,
-        deducted: 0,
-        items: [],
-      };
-      if (item.kind === 'entry') existing.earned += item.stars;
-      else if (item.kind === 'redemption') existing.redeemed += item.stars;
-      else existing.deducted += item.stars;
+      const existing = map.get(item.date) ?? { date: item.date, earned: 0, deducted: 0, redeemed: 0, items: [] };
+      if (item.kind === 'entry') {
+        if (item.stars > 0) existing.earned += item.stars;
+        else existing.deducted += Math.abs(item.stars);
+      } else {
+        existing.redeemed += item.stars;
+      }
       existing.items.push(item);
       map.set(item.date, existing);
     }
-
     return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
   }, [timeline]);
 
-  // For the daily bar chart (last 7 days)
   const barData = useMemo(() => {
     const days = dailyGroups.slice(0, 7);
     const max = Math.max(1, ...days.map(d => d.earned));
     return days.map(d => ({ ...d, pct: (d.earned / max) * 100 }));
   }, [dailyGroups]);
 
-  function dotColor(kind: string) {
-    if (kind === 'entry') return 'var(--star)';
-    if (kind === 'deduction') return 'var(--red)';
+  function dotColor(item: typeof timeline[number]) {
+    if (item.kind === 'entry' && item.stars < 0) return 'var(--red)';
+    if (item.kind === 'entry') return 'var(--star)';
     return 'var(--purple)';
   }
 
-  function itemLabel(item: typeof timeline[number]) {
-    if (item.kind === 'entry') {
-      if (item.sessionType === 'maths') return '🔢 Maths';
-      if (item.sessionType === 'chores') return '🧹 Chores';
-      return '📖 Reading';
-    }
-    if (item.kind === 'deduction') return '⬇️ Deducted';
-    return '🎁 Redeemed';
-  }
-
-  function itemTitle(item: typeof timeline[number]) {
-    if (item.kind === 'entry') return item.title;
-    if (item.kind === 'deduction') return item.reason;
-    return item.name;
-  }
-
-  function amountClass(kind: string) {
-    if (kind === 'entry') return 'history-amount history-amount-earn';
-    return 'history-amount history-amount-redeem';
-  }
-
   function amountText(item: typeof timeline[number]) {
-    if (item.kind === 'entry') return `+${item.stars} ⭐`;
-    return `−${item.stars} ⭐`;
+    if (item.kind === 'redemption') return `−${item.stars} ⭐`;
+    return `${item.stars > 0 ? '+' : ''}${item.stars} ⭐`;
+  }
+
+  function amountStyle(item: typeof timeline[number]) {
+    if (item.kind === 'redemption' || (item.kind === 'entry' && item.stars < 0)) return { color: 'var(--red)' };
+    return undefined;
   }
 
   return (
@@ -122,45 +96,35 @@ export default function History() {
         <p className="screen-subtitle">Every star earned and redeemed</p>
       </div>
 
-      {/* Sub-tabs */}
       <div className="sub-tabs">
-        <button
-          className={`sub-tab${view === 'timeline' ? ' active' : ''}`}
-          onClick={() => setView('timeline')}
-        >
+        <button className={`sub-tab${view === 'timeline' ? ' active' : ''}`} onClick={() => setView('timeline')}>
           📋 Timeline
         </button>
-        <button
-          className={`sub-tab${view === 'daily' ? ' active' : ''}`}
-          onClick={() => setView('daily')}
-        >
+        <button className={`sub-tab${view === 'daily' ? ' active' : ''}`} onClick={() => setView('daily')}>
           📅 By Day
         </button>
       </div>
 
-      {/* ── Timeline ──────────────────────────────────── */}
+      {/* ── Timeline ── */}
       {view === 'timeline' && (
         <>
           {timeline.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">📋</div>
               <p className="empty-state-title">Nothing yet</p>
-              <p className="empty-state-text">
-                Start logging reading sessions and they'll appear here.
-              </p>
+              <p className="empty-state-text">Start logging sessions and they'll appear here.</p>
             </div>
           ) : (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '4px 14px', boxShadow: 'var(--shadow-sm)' }}>
               {timeline.map(item => (
                 <div key={item.id} className="history-item">
-                  <span
-                    className="history-dot"
-                    style={{ background: dotColor(item.kind) }}
-                  />
+                  <span className="history-dot" style={{ background: dotColor(item) }} />
                   <div className="history-body">
-                    <p className="history-title">{itemTitle(item)}</p>
+                    <p className="history-title">
+                      {item.kind === 'entry' ? item.title : item.name}
+                    </p>
                     <p className="history-meta">
-                      {itemLabel(item)} · {formatDateShort(item.date)}
+                      {item.kind === 'entry' ? entryLabel(item.stars, item.sessionType) : '🎁 Redeemed'} · {formatDateShort(item.date)}
                     </p>
                     {item.kind === 'entry' && item.note && (
                       <p className="history-note">"{item.note}"</p>
@@ -175,10 +139,7 @@ export default function History() {
                       </button>
                     )}
                   </div>
-                  <span
-                    className={amountClass(item.kind)}
-                    style={item.kind === 'deduction' ? { color: 'var(--red)' } : undefined}
-                  >
+                  <span className="history-amount" style={amountStyle(item)}>
                     {amountText(item)}
                   </span>
                 </div>
@@ -188,20 +149,17 @@ export default function History() {
         </>
       )}
 
-      {/* ── By Day ──────────────────────────────────────── */}
+      {/* ── By Day ── */}
       {view === 'daily' && (
         <>
           {dailyGroups.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">📅</div>
               <p className="empty-state-title">Nothing yet</p>
-              <p className="empty-state-text">
-                Daily summaries will appear once you've logged some sessions.
-              </p>
+              <p className="empty-state-text">Daily summaries will appear once you've logged some sessions.</p>
             </div>
           ) : (
             <>
-              {/* Mini bar chart */}
               {barData.length > 1 && (
                 <div style={{ marginBottom: 20 }}>
                   <p className="section-title" style={{ marginBottom: 10 }}>Stars per day (recent)</p>
@@ -219,7 +177,6 @@ export default function History() {
                 </div>
               )}
 
-              {/* Daily groups */}
               <div className="stack stack-lg">
                 {dailyGroups.map(day => (
                   <div key={day.date} className="day-group">
@@ -227,25 +184,21 @@ export default function History() {
                       <span className="day-group-date">{formatDate(day.date)}</span>
                       <span className="day-group-total">
                         +{day.earned} ⭐
+                        {day.deducted > 0 && <span style={{ color: 'var(--red)' }}> ⬇️{day.deducted}</span>}
                         {day.redeemed > 0 ? ` −${day.redeemed} ⭐` : ''}
-                        {day.deducted > 0 ? <span style={{ color: 'var(--red)' }}> ⬇️{day.deducted}</span> : ''}
                       </span>
                     </div>
                     <div className="day-group-card">
                       {day.items.map(item => (
                         <div key={item.id} className="history-item">
-                          <span
-                            className="history-dot"
-                            style={{ background: dotColor(item.kind) }}
-                          />
+                          <span className="history-dot" style={{ background: dotColor(item) }} />
                           <div className="history-body">
-                            <p className="history-title">{itemTitle(item)}</p>
-                            <p className="history-meta">{itemLabel(item)}</p>
+                            <p className="history-title">{item.kind === 'entry' ? item.title : item.name}</p>
+                            <p className="history-meta">
+                              {item.kind === 'entry' ? entryLabel(item.stars, item.sessionType) : '🎁 Redeemed'}
+                            </p>
                           </div>
-                          <span
-                            className={amountClass(item.kind)}
-                            style={item.kind === 'deduction' ? { color: 'var(--red)' } : undefined}
-                          >
+                          <span className="history-amount" style={amountStyle(item)}>
                             {amountText(item)}
                           </span>
                         </div>
@@ -259,18 +212,12 @@ export default function History() {
         </>
       )}
 
-      {/* Undo redemption confirm */}
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="Undo Redemption?"
         message="This will remove the redemption and add the stars back to the balance."
         confirmLabel="Undo"
-        onConfirm={() => {
-          if (deleteConfirm) {
-            deleteRedemption(deleteConfirm);
-          }
-          setDeleteConfirm(null);
-        }}
+        onConfirm={() => { if (deleteConfirm) deleteRedemption(deleteConfirm); setDeleteConfirm(null); }}
         onCancel={() => setDeleteConfirm(null)}
       />
     </div>

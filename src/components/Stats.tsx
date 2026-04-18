@@ -94,18 +94,19 @@ export function tagColor(tag: string) {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Stats() {
-  const { entries, redemptions, deductions } = useApp();
+  const { entries, redemptions } = useApp();
 
   const stats = useMemo(() => {
-    const totalSessions = entries.length;
-    const readingSessions = entries.filter(e => (e.sessionType ?? 'reading') === 'reading').length;
-    const mathsSessions = entries.filter(e => e.sessionType === 'maths').length;
-    const choresSessions = entries.filter(e => e.sessionType === 'chores').length;
-    const readingStars = entries.filter(e => (e.sessionType ?? 'reading') === 'reading').reduce((s, e) => s + e.stars, 0);
-    const mathsStars = entries.filter(e => e.sessionType === 'maths').reduce((s, e) => s + e.stars, 0);
-    const choresStars = entries.filter(e => e.sessionType === 'chores').reduce((s, e) => s + e.stars, 0);
-    const totalStars = entries.reduce((s, e) => s + e.stars, 0);
-    const readingDays = new Set(entries.map(e => e.date)).size;
+    const positiveEntries = entries.filter(e => e.stars > 0);
+    const totalSessions = positiveEntries.length;
+    const readingSessions = positiveEntries.filter(e => (e.sessionType ?? 'reading') === 'reading').length;
+    const mathsSessions = positiveEntries.filter(e => e.sessionType === 'maths').length;
+    const choresSessions = positiveEntries.filter(e => e.sessionType === 'chores').length;
+    const readingStars = positiveEntries.filter(e => (e.sessionType ?? 'reading') === 'reading').reduce((s, e) => s + e.stars, 0);
+    const mathsStars = positiveEntries.filter(e => e.sessionType === 'maths').reduce((s, e) => s + e.stars, 0);
+    const choresStars = positiveEntries.filter(e => e.sessionType === 'chores').reduce((s, e) => s + e.stars, 0);
+    const totalStars = positiveEntries.reduce((s, e) => s + e.stars, 0);
+    const readingDays = new Set(positiveEntries.map(e => e.date)).size;
     const avgStarsPerSession = totalSessions > 0
       ? (totalStars / totalSessions).toFixed(1)
       : '0';
@@ -115,7 +116,7 @@ export default function Stats() {
 
     // Books
     const bookMap = new Map<string, { count: number; stars: number }>();
-    for (const e of entries) {
+    for (const e of positiveEntries) {
       const t = e.bookTitle?.trim();
       if (!t) continue;
       const prev = bookMap.get(t) ?? { count: 0, stars: 0 };
@@ -127,19 +128,19 @@ export default function Stats() {
     const uniqueBooks = books.length;
 
     // Streak
-    const { current: streakCurrent, best: streakBest } = calcStreaks(entries);
+    const { current: streakCurrent, best: streakBest } = calcStreaks(positiveEntries);
 
     // Time of day
     const timeCounts: Record<TimeSlot, number> = { Morning: 0, Afternoon: 0, Evening: 0, Night: 0 };
-    for (const e of entries) timeCounts[timeSlot(e.createdAt)]++;
+    for (const e of positiveEntries) timeCounts[timeSlot(e.createdAt)]++;
 
     // Day of week
     const dowCounts = Array(7).fill(0) as number[];
-    for (const e of entries) dowCounts[dowIndex(e.date)]++;
+    for (const e of positiveEntries) dowCounts[dowIndex(e.date)]++;
 
     // Weekly stars (last 8 weeks)
     const weekMap = new Map<string, number>();
-    for (const e of entries) {
+    for (const e of positiveEntries) {
       const d = new Date(`${e.date}T12:00:00`);
       const dow = d.getDay();
       const monday = new Date(d);
@@ -159,9 +160,10 @@ export default function Stats() {
     // Total redemptions
     const totalRedemptions = redemptions.length;
 
-    // Deductions
-    const totalDeductions = deductions.length;
-    const totalDeductedStars = deductions.reduce((s, d) => s + d.stars, 0);
+    // Negative entries (removed stars)
+    const negativeEntries = entries.filter(e => e.stars < 0);
+    const totalDeductions = negativeEntries.length;
+    const totalDeductedStars = Math.abs(negativeEntries.reduce((s, e) => s + e.stars, 0));
 
     // 30-day line chart data
     const today = new Date();
@@ -202,9 +204,9 @@ export default function Stats() {
       totalDeductedStars,
       last30,
     };
-  }, [entries, redemptions, deductions]);
+  }, [entries, redemptions]);
 
-  if (entries.length === 0) {
+  if (entries.filter(e => e.stars > 0).length === 0) {
     return (
       <div>
         <div className="screen-header">

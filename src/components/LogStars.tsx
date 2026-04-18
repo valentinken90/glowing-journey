@@ -36,7 +36,7 @@ function sessionBtnColor(type: SessionType) {
 }
 
 export default function LogStars({ showToast }: LogStarsProps) {
-  const { entries, addEntry, addDeduction, updateEntry, deleteEntry } = useApp();
+  const { entries, addEntry, updateEntry, deleteEntry } = useApp();
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [addForm, setAddForm] = useState({ sessionType: 'reading' as SessionType, stars: 1, bookTitle: '', note: '', date: todayStr() });
@@ -76,10 +76,14 @@ export default function LogStars({ showToast }: LogStarsProps) {
   };
 
   const handleDeductConfirm = () => {
-    addDeduction({ stars: deductForm.stars, reason: deductForm.reason.trim(), date: deductForm.date });
+    addEntry({
+      stars: -deductForm.stars,
+      bookTitle: deductForm.reason.trim(),
+      date: deductForm.date,
+    });
     setDeductConfirm(false);
     setActivePanel(null);
-    showToast(`⬇️ ${pluralStars(deductForm.stars)} deducted`);
+    showToast(`⬇️ ${pluralStars(deductForm.stars)} removed`);
   };
 
   const openEdit = useCallback((entry: StarEntry) => {
@@ -292,26 +296,27 @@ export default function LogStars({ showToast }: LogStarsProps) {
         ) : (
           <div className="stack stack-lg">
             {sorted.map(entry => {
+              const isNeg = entry.stars < 0;
               const type = entry.sessionType ?? 'reading';
+              const icon = isNeg ? '⬇️' : sessionIcon(type);
+              const title = isNeg ? (entry.bookTitle ?? 'Stars removed') : (entry.bookTitle ?? defaultTitle(type));
+              const metaLabel = isNeg ? 'Removed' : sessionLabel(type);
               return (
                 <div key={entry.id} className="entry-item">
                   <div className="entry-item-header">
                     <div className="entry-item-main">
-                      <p className="entry-item-title">
-                        {sessionIcon(type)}{' '}
-                        {entry.bookTitle ?? defaultTitle(type)}
-                      </p>
-                      <p className="entry-item-meta">
-                        {sessionLabel(type)} · {formatDate(entry.date)}
-                      </p>
+                      <p className="entry-item-title">{icon} {title}</p>
+                      <p className="entry-item-meta">{metaLabel} · {formatDate(entry.date)}</p>
                     </div>
-                    <span className="entry-stars-badge">⭐ {entry.stars}</span>
+                    <span className="entry-stars-badge" style={isNeg ? { background: 'var(--red-light)', color: 'var(--red)' } : undefined}>
+                      {isNeg ? '' : '⭐ '}{entry.stars}
+                    </span>
                   </div>
                   {entry.note && (
                     <p className="entry-item-note">"{entry.note}"</p>
                   )}
                   <div className="entry-item-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(entry)}>Edit</button>
+                    {!isNeg && <button className="btn btn-ghost btn-sm" onClick={() => openEdit(entry)}>Edit</button>}
                     <button className="btn btn-danger btn-sm" onClick={() => setDeleteConfirm(entry)}>Delete</button>
                   </div>
                 </div>
@@ -408,7 +413,7 @@ export default function LogStars({ showToast }: LogStarsProps) {
       <ConfirmDialog
         isOpen={deductConfirm}
         title="Remove Stars?"
-        message={`Remove ${pluralStars(deductForm.stars)} for "${deductForm.reason}"? This will reduce the available balance.`}
+        message={`Add −${pluralStars(deductForm.stars)} for "${deductForm.reason}"? This will reduce the available balance.`}
         confirmLabel="Yes, remove"
         confirmDanger
         onConfirm={handleDeductConfirm}

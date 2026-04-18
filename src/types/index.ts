@@ -12,6 +12,7 @@ export interface Reward {
   name: string;
   starCost: number;
   description?: string;
+  tags?: string[];
   active: boolean;
   createdAt: string;
 }
@@ -25,6 +26,6 @@ export interface Redemption {
   createdAt: string;
 }
 
-export type Tab = 'dashboard' | 'log' | 'rewards' | 'history';
+export type Tab = 'dashboard' | 'log' | 'rewards' | 'stats' | 'history';
 export type RewardsView = 'wishlist' | 'manage';
 export type HistoryView = 'timeline' | 'daily';

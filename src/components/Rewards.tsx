@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
 import { pluralStars, clamp } from '../utils/helpers';
+import { tagColor } from './Stats';
 import type { Reward, RewardsView } from '../types';
 
 interface RewardsProps {
@@ -13,6 +14,7 @@ interface RewardFormState {
   name: string;
   starCost: number;
   description: string;
+  tags: string[];
   active: boolean;
 }
 
@@ -20,12 +22,78 @@ const emptyRewardForm = (): RewardFormState => ({
   name: '',
   starCost: 5,
   description: '',
+  tags: [],
   active: true,
 });
+
+// ── Tag input component ────────────────────────────────────────────────────
+
+interface TagInputProps {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+}
+
+function TagInput({ tags, onChange }: TagInputProps) {
+  const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const addTag = useCallback(() => {
+    const tag = input.trim().toLowerCase().replace(/,/g, '');
+    if (tag && !tags.includes(tag)) onChange([...tags, tag]);
+    setInput('');
+  }, [input, tags, onChange]);
+
+  const removeTag = useCallback((tag: string) => {
+    onChange(tags.filter(t => t !== tag));
+  }, [tags, onChange]);
+
+  return (
+    <div
+      className="tag-input-row"
+      onClick={() => inputRef.current?.focus()}
+    >
+      {tags.map(tag => {
+        const c = tagColor(tag);
+        return (
+          <span
+            key={tag}
+            className="tag-chip"
+            style={{ background: c.bg, color: c.text }}
+          >
+            {tag}
+            <button
+              className="tag-chip-remove"
+              onClick={e => { e.stopPropagation(); removeTag(tag); }}
+            >
+              ×
+            </button>
+          </span>
+        );
+      })}
+      <input
+        ref={inputRef}
+        className="tag-input-field"
+        value={input}
+        placeholder={tags.length === 0 ? 'e.g. reading, maths, arts…' : 'Add tag…'}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); }
+          if (e.key === 'Backspace' && !input && tags.length > 0) {
+            onChange(tags.slice(0, -1));
+          }
+        }}
+        onBlur={addTag}
+      />
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────
 
 export default function Rewards({ showToast }: RewardsProps) {
   const { rewards, availableStars, addReward, updateReward, deleteReward, redeemReward } = useApp();
   const [view, setView] = useState<RewardsView>('wishlist');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
   const [form, setForm] = useState<RewardFormState>(emptyRewardForm());
@@ -44,6 +112,7 @@ export default function Rewards({ showToast }: RewardsProps) {
       name: reward.name,
       starCost: reward.starCost,
       description: reward.description ?? '',
+      tags: reward.tags ?? [],
       active: reward.active,
     });
     setModalOpen(true);
@@ -52,14 +121,13 @@ export default function Rewards({ showToast }: RewardsProps) {
   const handleSave = useCallback(() => {
     const name = form.name.trim();
     if (!name || form.starCost < 1) return;
-
     const data = {
       name,
       starCost: form.starCost,
       description: form.description.trim() || undefined,
+      tags: form.tags.length > 0 ? form.tags : undefined,
       active: form.active,
     };
-
     if (editingReward) {
       updateReward({ ...editingReward, ...data });
       showToast('✏️ Reward updated');
@@ -81,11 +149,8 @@ export default function Rewards({ showToast }: RewardsProps) {
     if (!redeemConfirm) return;
     const ok = redeemReward(redeemConfirm);
     setRedeemConfirm(null);
-    if (ok) {
-      showToast(`🎉 Redeemed: ${redeemConfirm.name}`);
-    } else {
-      showToast('⚠️ Not enough stars');
-    }
+    if (ok) showToast(`🎉 Redeemed: ${redeemConfirm.name}`);
+    else showToast('⚠️ Not enough stars');
   }, [redeemConfirm, redeemReward, showToast]);
 
   const toggleActive = useCallback((reward: Reward) => {
@@ -93,7 +158,16 @@ export default function Rewards({ showToast }: RewardsProps) {
     showToast(reward.active ? '⏸️ Reward paused' : '▶️ Reward activated');
   }, [updateReward, showToast]);
 
-  const activeRewards = rewards.filter(r => r.active).sort((a, b) => a.starCost - b.starCost);
+  // All unique tags from active rewards
+  const allTags = [...new Set(
+    rewards.filter(r => r.active).flatMap(r => r.tags ?? [])
+  )].sort();
+
+  const activeRewards = rewards
+    .filter(r => r.active)
+    .filter(r => !activeTag || (r.tags ?? []).includes(activeTag))
+    .sort((a, b) => a.starCost - b.starCost);
+
   const allRewards = [...rewards].sort((a, b) => a.starCost - b.starCost);
 
   return (
@@ -103,29 +177,45 @@ export default function Rewards({ showToast }: RewardsProps) {
         <p className="screen-subtitle">What can those stars unlock?</p>
       </div>
 
-      {/* Sub-tabs */}
       <div className="sub-tabs">
-        <button
-          className={`sub-tab${view === 'wishlist' ? ' active' : ''}`}
-          onClick={() => setView('wishlist')}
-        >
+        <button className={`sub-tab${view === 'wishlist' ? ' active' : ''}`} onClick={() => setView('wishlist')}>
           ✨ Wishlist
         </button>
-        <button
-          className={`sub-tab${view === 'manage' ? ' active' : ''}`}
-          onClick={() => setView('manage')}
-        >
+        <button className={`sub-tab${view === 'manage' ? ' active' : ''}`} onClick={() => setView('manage')}>
           ⚙️ Manage
         </button>
       </div>
 
-      {/* ── Wishlist ────────────────────────────────────── */}
+      {/* ── Wishlist ──────────────────────────────────── */}
       {view === 'wishlist' && (
         <>
+          {/* Tag filter */}
+          {allTags.length > 0 && (
+            <div className="tag-filter-row">
+              <button
+                className={`tag-filter-btn${!activeTag ? ' active' : ''}`}
+                onClick={() => setActiveTag(null)}
+              >
+                All
+              </button>
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  className={`tag-filter-btn${activeTag === tag ? ' active' : ''}`}
+                  onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+
           {activeRewards.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">🎁</div>
-              <p className="empty-state-title">No active rewards</p>
+              <p className="empty-state-title">
+                {activeTag ? `No rewards tagged "${activeTag}"` : 'No active rewards'}
+              </p>
               <p className="empty-state-text">
                 Switch to <strong>Manage</strong> to add some rewards.
               </p>
@@ -144,6 +234,20 @@ export default function Rewards({ showToast }: RewardsProps) {
                       <span className="reward-card-cost">⭐ {reward.starCost}</span>
                     </div>
 
+                    {/* Tags */}
+                    {reward.tags && reward.tags.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                        {reward.tags.map(tag => {
+                          const c = tagColor(tag);
+                          return (
+                            <span key={tag} className="tag-chip" style={{ background: c.bg, color: c.text, fontSize: 11 }}>
+                              {tag}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {reward.description && (
                       <p className="reward-card-desc">{reward.description}</p>
                     )}
@@ -157,9 +261,7 @@ export default function Rewards({ showToast }: RewardsProps) {
 
                     <div className="progress-label">
                       <span>
-                        {availableStars >= reward.starCost
-                          ? `${reward.starCost} / ${reward.starCost} stars`
-                          : `${availableStars} / ${reward.starCost} stars`}
+                        {Math.min(availableStars, reward.starCost)} / {reward.starCost} stars
                       </span>
                       <span className={canRedeem ? 'progress-label-ready' : ''}>
                         {canRedeem ? '✓ Ready to redeem!' : `${needed} more ${needed === 1 ? 'star' : 'stars'} needed`}
@@ -181,13 +283,12 @@ export default function Rewards({ showToast }: RewardsProps) {
         </>
       )}
 
-      {/* ── Manage ──────────────────────────────────────── */}
+      {/* ── Manage ────────────────────────────────────── */}
       {view === 'manage' && (
         <>
           <button className="btn btn-primary btn-full" style={{ marginBottom: 20 }} onClick={openAdd}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             Add Reward
           </button>
@@ -209,23 +310,34 @@ export default function Rewards({ showToast }: RewardsProps) {
                         <span className="reward-card-cost" style={{ fontSize: 11, padding: '2px 8px' }}>
                           ⭐ {reward.starCost}
                         </span>
-                        <span
-                          className="status-dot"
-                          style={{ background: reward.active ? 'var(--green)' : 'var(--text-faint)' }}
-                        />
-                        <span style={{ fontSize: 12, color: reward.active ? 'var(--green)' : 'var(--text-faint)' }}>
-                          {reward.active ? 'Active' : 'Paused'}
+                        <span style={{
+                          fontSize: 12,
+                          color: reward.active ? 'var(--green)' : 'var(--text-faint)',
+                          fontWeight: 700,
+                        }}>
+                          {reward.active ? '● Active' : '○ Paused'}
                         </span>
                       </div>
+                      {/* Tags on manage card */}
+                      {reward.tags && reward.tags.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                          {reward.tags.map(tag => {
+                            const c = tagColor(tag);
+                            return (
+                              <span key={tag} className="tag-chip" style={{ background: c.bg, color: c.text, fontSize: 11 }}>
+                                {tag}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
-
                   {reward.description && (
                     <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>
                       {reward.description}
                     </p>
                   )}
-
                   <div className="reward-manage-actions">
                     <button className="btn btn-ghost btn-sm" onClick={() => toggleActive(reward)}>
                       {reward.active ? 'Pause' : 'Activate'}
@@ -244,12 +356,8 @@ export default function Rewards({ showToast }: RewardsProps) {
         </>
       )}
 
-      {/* Add / Edit reward modal */}
-      <Modal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={editingReward ? 'Edit Reward' : 'Add Reward'}
-      >
+      {/* Add / Edit modal */}
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingReward ? 'Edit Reward' : 'Add Reward'}>
         <div className="stack stack-lg" style={{ marginBottom: 20 }}>
           <div className="form-field">
             <label className="form-label" htmlFor="reward-name">Reward Name</label>
@@ -266,22 +374,9 @@ export default function Rewards({ showToast }: RewardsProps) {
           <div className="form-field">
             <label className="form-label">Star Cost</label>
             <div className="star-picker">
-              <button
-                className="star-picker-btn"
-                onClick={() => setForm(f => ({ ...f, starCost: clamp(f.starCost - 1, 1, 100) }))}
-              >
-                −
-              </button>
-              <div className="star-picker-val">
-                <span>⭐</span>
-                <span>{form.starCost}</span>
-              </div>
-              <button
-                className="star-picker-btn"
-                onClick={() => setForm(f => ({ ...f, starCost: clamp(f.starCost + 1, 1, 100) }))}
-              >
-                +
-              </button>
+              <button className="star-picker-btn" onClick={() => setForm(f => ({ ...f, starCost: clamp(f.starCost - 1, 1, 100) }))}>−</button>
+              <div className="star-picker-val"><span>⭐</span><span>{form.starCost}</span></div>
+              <button className="star-picker-btn" onClick={() => setForm(f => ({ ...f, starCost: clamp(f.starCost + 1, 1, 100) }))}>+</button>
             </div>
           </div>
 
@@ -297,6 +392,17 @@ export default function Rewards({ showToast }: RewardsProps) {
             />
           </div>
 
+          <div className="form-field">
+            <label className="form-label">Tags (optional)</label>
+            <TagInput
+              tags={form.tags}
+              onChange={tags => setForm(f => ({ ...f, tags }))}
+            />
+            <p style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
+              Press Enter or comma to add. Tap × to remove.
+            </p>
+          </div>
+
           <div className="form-field" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <label className="form-label" htmlFor="reward-active" style={{ margin: 0 }}>Active</label>
             <button
@@ -305,28 +411,18 @@ export default function Rewards({ showToast }: RewardsProps) {
               aria-checked={form.active}
               onClick={() => setForm(f => ({ ...f, active: !f.active }))}
               style={{
-                width: 48,
-                height: 28,
-                borderRadius: 14,
-                background: form.active ? 'var(--star)' : 'var(--border)',
-                position: 'relative',
-                transition: 'background 0.2s',
-                flexShrink: 0,
+                width: 48, height: 28, borderRadius: 14,
+                background: form.active ? 'var(--primary)' : 'var(--border)',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
               }}
             >
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 3,
-                  left: form.active ? 23 : 3,
-                  width: 22,
-                  height: 22,
-                  borderRadius: '50%',
-                  background: '#fff',
-                  transition: 'left 0.2s',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                }}
-              />
+              <span style={{
+                position: 'absolute', top: 3,
+                left: form.active ? 23 : 3,
+                width: 22, height: 22, borderRadius: '50%',
+                background: '#fff', transition: 'left 0.2s',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+              }} />
             </button>
           </div>
         </div>
@@ -340,25 +436,20 @@ export default function Rewards({ showToast }: RewardsProps) {
         </button>
       </Modal>
 
-      {/* Delete confirm */}
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="Delete Reward?"
         message={`Remove "${deleteConfirm?.name}"? This cannot be undone.`}
-        confirmLabel="Delete"
-        confirmDanger
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteConfirm(null)}
+        confirmLabel="Delete" confirmDanger
+        onConfirm={handleDelete} onCancel={() => setDeleteConfirm(null)}
       />
 
-      {/* Redeem confirm */}
       <ConfirmDialog
         isOpen={!!redeemConfirm}
         title="Redeem Reward?"
-        message={`Redeem "${redeemConfirm?.name}" for ${redeemConfirm ? pluralStars(redeemConfirm.starCost) : ''}? This will be deducted from the available balance.`}
+        message={`Redeem "${redeemConfirm?.name}" for ${redeemConfirm ? pluralStars(redeemConfirm.starCost) : ''}? Stars will be deducted from the balance.`}
         confirmLabel="Redeem 🎉"
-        onConfirm={handleRedeem}
-        onCancel={() => setRedeemConfirm(null)}
+        onConfirm={handleRedeem} onCancel={() => setRedeemConfirm(null)}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import LogStars from './components/LogStars';
 import Rewards from './components/Rewards';
+import Stats from './components/Stats';
 import History from './components/History';
 import Toast from './components/Toast';
 import type { Tab } from './types';
@@ -22,11 +23,10 @@ export default function App() {
     <AppProvider>
       <div className="app-shell">
         <main className="screen">
-          {activeTab === 'dashboard' && (
-            <Dashboard showToast={showToast} onNavigate={setActiveTab} />
-          )}
+          {activeTab === 'dashboard' && <Dashboard showToast={showToast} onNavigate={setActiveTab} />}
           {activeTab === 'log' && <LogStars showToast={showToast} />}
           {activeTab === 'rewards' && <Rewards showToast={showToast} />}
+          {activeTab === 'stats' && <Stats />}
           {activeTab === 'history' && <History />}
         </main>
 

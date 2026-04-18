@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatDateShort } from '../utils/helpers';
-import type { Tab } from '../types';
+import type { Tab, SessionType } from '../types';
 
 interface DashboardProps {
   showToast: (msg: string) => void;
@@ -11,6 +11,7 @@ interface DashboardProps {
 interface ActivityItem {
   id: string;
   type: 'entry' | 'redemption';
+  sessionType?: SessionType;
   title: string;
   meta: string;
   stars: number;
@@ -25,7 +26,8 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
       ...entries.map(e => ({
         id: e.id,
         type: 'entry' as const,
-        title: e.bookTitle ?? 'Reading session',
+        sessionType: e.sessionType,
+        title: e.bookTitle ?? (e.sessionType === 'maths' ? 'Maths session' : 'Reading session'),
         meta: formatDateShort(e.date),
         stars: e.stars,
         createdAt: e.createdAt,
@@ -86,7 +88,7 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Add Reading
+          Add Session
         </button>
       </div>
 
@@ -113,7 +115,7 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
           {recentActivity.map(item => (
             <div key={item.id} className="activity-item">
               <div className={`activity-icon ${item.type === 'entry' ? 'activity-icon-star' : 'activity-icon-redeem'}`}>
-                {item.type === 'entry' ? '📖' : '🎁'}
+                {item.type === 'redemption' ? '🎁' : item.sessionType === 'maths' ? '🔢' : '📖'}
               </div>
               <div className="activity-body">
                 <p className="activity-title">{item.title}</p>

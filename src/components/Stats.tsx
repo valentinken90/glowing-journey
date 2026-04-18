@@ -97,6 +97,10 @@ export default function Stats() {
 
   const stats = useMemo(() => {
     const totalSessions = entries.length;
+    const readingSessions = entries.filter(e => (e.sessionType ?? 'reading') === 'reading').length;
+    const mathsSessions = entries.filter(e => e.sessionType === 'maths').length;
+    const readingStars = entries.filter(e => (e.sessionType ?? 'reading') === 'reading').reduce((s, e) => s + e.stars, 0);
+    const mathsStars = entries.filter(e => e.sessionType === 'maths').reduce((s, e) => s + e.stars, 0);
     const totalStars = entries.reduce((s, e) => s + e.stars, 0);
     const readingDays = new Set(entries.map(e => e.date)).size;
     const avgStarsPerSession = totalSessions > 0
@@ -154,6 +158,10 @@ export default function Stats() {
 
     return {
       totalSessions,
+      readingSessions,
+      mathsSessions,
+      readingStars,
+      mathsStars,
       totalStars,
       readingDays,
       uniqueBooks,
@@ -210,6 +218,49 @@ export default function Stats() {
           <div className="streak-label">Best streak</div>
         </div>
       </div>
+
+      {/* ── Session type breakdown ── */}
+      {stats.totalSessions > 0 && (
+        <div className="stats-section">
+          <p className="stats-section-title">Sessions by Type</p>
+          <div className="stat-bar-container">
+            <div className="stat-bar-row">
+              <span className="stat-bar-label stat-bar-label-wide">📖 Reading</span>
+              <div className="stat-bar-track">
+                <div
+                  className="stat-bar-fill-primary"
+                  style={{ width: `${(stats.readingSessions / stats.totalSessions) * 100}%` }}
+                />
+              </div>
+              <span className="stat-bar-val">{stats.readingSessions}</span>
+            </div>
+            <div className="stat-bar-row">
+              <span className="stat-bar-label stat-bar-label-wide">🔢 Maths</span>
+              <div className="stat-bar-track">
+                <div
+                  className="stat-bar-fill-teal"
+                  style={{ width: `${(stats.mathsSessions / stats.totalSessions) * 100}%` }}
+                />
+              </div>
+              <span className="stat-bar-val">{stats.mathsSessions}</span>
+            </div>
+            <div className="stat-bar-row">
+              <span className="stat-bar-label stat-bar-label-wide" style={{ color: 'var(--text-faint)', fontSize: 11 }}>⭐ Reading stars</span>
+              <div className="stat-bar-track">
+                <div className="stat-bar-fill-primary" style={{ width: `${stats.totalStars > 0 ? (stats.readingStars / stats.totalStars) * 100 : 0}%` }} />
+              </div>
+              <span className="stat-bar-val">{stats.readingStars}</span>
+            </div>
+            <div className="stat-bar-row">
+              <span className="stat-bar-label stat-bar-label-wide" style={{ color: 'var(--text-faint)', fontSize: 11 }}>⭐ Maths stars</span>
+              <div className="stat-bar-track">
+                <div className="stat-bar-fill-teal" style={{ width: `${stats.totalStars > 0 ? (stats.mathsStars / stats.totalStars) * 100 : 0}%` }} />
+              </div>
+              <span className="stat-bar-val">{stats.mathsStars}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Overview tiles ── */}
       <div className="stats-grid" style={{ marginBottom: 20 }}>

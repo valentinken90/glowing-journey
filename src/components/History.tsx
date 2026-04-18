@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import ConfirmDialog from './ConfirmDialog';
 import { formatDate, formatDateShort } from '../utils/helpers';
-import type { HistoryView } from '../types';
+import type { HistoryView, SessionType } from '../types';
 
 export default function History() {
   const { entries, redemptions, deleteRedemption } = useApp();
@@ -12,7 +12,7 @@ export default function History() {
   // Merged, sorted timeline
   const timeline = useMemo(() => {
     type TimelineItem =
-      | { kind: 'entry'; id: string; date: string; createdAt: string; title: string; note?: string; stars: number }
+      | { kind: 'entry'; id: string; date: string; createdAt: string; title: string; note?: string; stars: number; sessionType?: SessionType }
       | { kind: 'redemption'; id: string; date: string; createdAt: string; name: string; stars: number };
 
     const items: TimelineItem[] = [
@@ -21,7 +21,8 @@ export default function History() {
         id: e.id,
         date: e.date,
         createdAt: e.createdAt,
-        title: e.bookTitle ?? 'Reading session',
+        sessionType: e.sessionType,
+        title: e.bookTitle ?? (e.sessionType === 'maths' ? 'Maths session' : 'Reading session'),
         note: e.note,
         stars: e.stars,
       })),
@@ -117,7 +118,7 @@ export default function History() {
                       {item.kind === 'entry' ? item.title : item.name}
                     </p>
                     <p className="history-meta">
-                      {item.kind === 'entry' ? '📖 Reading' : '🎁 Redeemed'} · {formatDateShort(item.date)}
+                      {item.kind === 'entry' ? (item.sessionType === 'maths' ? '🔢 Maths' : '📖 Reading') : '🎁 Redeemed'} · {formatDateShort(item.date)}
                     </p>
                     {item.kind === 'entry' && item.note && (
                       <p className="history-note">"{item.note}"</p>
@@ -195,7 +196,7 @@ export default function History() {
                               {item.kind === 'entry' ? item.title : item.name}
                             </p>
                             <p className="history-meta">
-                              {item.kind === 'entry' ? '📖 Reading' : '🎁 Redeemed'}
+                              {item.kind === 'entry' ? (item.sessionType === 'maths' ? '🔢 Maths' : '📖 Reading') : '🎁 Redeemed'}
                             </p>
                           </div>
                           <span

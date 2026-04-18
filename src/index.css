@@ -1337,6 +1337,41 @@ input, textarea, select {
   font-weight: 700;
 }
 
+/* ─── Session type toggle ────────────────────────────────────────────────── */
+
+.session-type-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.session-type-btn {
+  height: 54px;
+  border-radius: var(--radius);
+  font-size: 16px;
+  font-weight: 700;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.session-type-btn.active-reading {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+.session-type-btn.active-maths {
+  border-color: var(--teal);
+  background: var(--teal-light);
+  color: var(--teal);
+}
+
 /* ─── Empty state ────────────────────────────────────────────────────────── */
 
 .empty-state {

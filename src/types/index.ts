@@ -1,7 +1,10 @@
+export type SessionType = 'reading' | 'maths';
+
 export interface StarEntry {
   id: string;
   date: string;        // "YYYY-MM-DD"
   stars: number;
+  sessionType?: SessionType; // undefined treated as 'reading' (backward compat)
   bookTitle?: string;
   note?: string;
   createdAt: string;   // ISO timestamp

@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
 import { pluralStars, clamp } from '../utils/helpers';
-import { tagColor } from './Stats';
+import { tagColor } from '../utils/tagColors';
 import type { Reward, RewardsView } from '../types';
 
 interface RewardsProps {

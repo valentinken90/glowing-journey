@@ -290,7 +290,7 @@ export default function Dashboard({ showToast, onNavigate }: DashboardProps) {
       <div className="section-heading" style={{ marginTop: activePanel ? 20 : 0 }}>
         <h2 className="section-title">Recent Activity</h2>
         {(entries.length > 0 || redemptions.length > 0) && (
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('history')}>
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('stats')}>
             See all
           </button>
         )}

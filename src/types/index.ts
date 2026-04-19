@@ -1,12 +1,23 @@
+// ─── Core domain types ────────────────────────────────────────────────────────
+
 export type SessionType = 'reading' | 'maths' | 'chores';
+
+export interface Child {
+  id: string;
+  name: string;
+  age?: number;
+  createdAt: string;
+}
 
 export interface StarEntry {
   id: string;
   date: string;        // "YYYY-MM-DD"
   stars: number;       // positive = earned, negative = deducted
   sessionType?: SessionType; // undefined treated as 'reading' (backward compat)
-  bookTitle?: string;
+  title?: string;      // canonical replacement for bookTitle
+  bookTitle?: string;  // kept for backward compatibility
   note?: string;
+  childId?: string;    // undefined = default/first child (backward compat)
   createdAt: string;   // ISO timestamp
 }
 
@@ -26,9 +37,68 @@ export interface Redemption {
   rewardName: string;
   starCost: number;
   date: string;        // "YYYY-MM-DD"
+  childId?: string;    // undefined = default/first child (backward compat)
   createdAt: string;
 }
 
-export type Tab = 'dashboard' | 'log' | 'rewards' | 'stats' | 'history';
+// ─── Flashcard types ─────────────────────────────────────────────────────────
+
+export type FlashcardSubject = 'maths' | 'reading';
+
+export type FlashcardLevel =
+  | 'reception'
+  | 'year1'
+  | 'year2'
+  | 'year3'
+  | 'year4'
+  | 'year5'
+  | 'year6';
+
+export type FlashcardMode =
+  | 'number-recognition'
+  | 'number-bonds'
+  | 'addition'
+  | 'subtraction'
+  | 'multiplication'
+  | 'division'
+  | 'letters'
+  | 'phonics-cvc'
+  | 'sight-words'
+  | 'vocabulary'
+  | 'spelling-patterns';
+
+export interface Flashcard {
+  id: string;
+  question: string;
+  answer: string;
+  hint?: string;
+}
+
+export interface FlashcardDeck {
+  subject: FlashcardSubject;
+  level: FlashcardLevel;
+  mode: FlashcardMode;
+  modeLabel: string;
+  description?: string;
+  cards: Flashcard[];
+}
+
+export interface FlashcardSession {
+  id: string;
+  childId: string;
+  subject: FlashcardSubject;
+  level: FlashcardLevel;
+  mode: FlashcardMode;
+  correct: number;
+  incorrect: number;
+  total: number;
+  date: string;        // "YYYY-MM-DD"
+  createdAt: string;
+}
+
+// ─── Navigation types ─────────────────────────────────────────────────────────
+
+export type Tab = 'dashboard' | 'log' | 'rewards' | 'stats' | 'flashcards';
 export type RewardsView = 'wishlist' | 'manage';
 export type HistoryView = 'timeline' | 'daily';
+export type StatsView = 'overview' | 'history';

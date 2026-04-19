@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { todayStr, localDateStr, pluralStars } from '../utils/helpers';
-import type { StarEntry, Redemption } from '../types';
+import type { StarEntry, Redemption, StatsView } from '../types';
 import LineChart from './LineChart';
+import HistoryPanel from './HistoryPanel';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -11,21 +12,6 @@ type TimeWindow = 'today' | 'week' | 'month' | 'custom' | 'all';
 const WINDOW_LABELS: Record<TimeWindow, string> = {
   today: 'Today', week: 'This Week', month: 'This Month', custom: 'Custom', all: 'All Time',
 };
-
-const TAG_PALETTE = [
-  { bg: '#FFE0E8', text: '#C41E61' },
-  { bg: '#E0F0FF', text: '#1E4D8A' },
-  { bg: '#E0FFE8', text: '#166534' },
-  { bg: '#FFF0D9', text: '#92400E' },
-  { bg: '#EDE0FF', text: '#5B21B6' },
-  { bg: '#D9F9F6', text: '#0E7490' },
-  { bg: '#FEFFD9', text: '#713F12' },
-];
-export function tagColor(tag: string) {
-  let h = 0;
-  for (const c of tag) h = (h * 31 + c.charCodeAt(0)) % TAG_PALETTE.length;
-  return TAG_PALETTE[h];
-}
 
 function prevDayStr(dateStr: string): string {
   const d = new Date(`${dateStr}T12:00:00`);
@@ -159,6 +145,7 @@ const CHART_TITLE: Record<TimeWindow, string> = {
 
 export default function Stats() {
   const { entries, redemptions } = useApp();
+  const [statsView, setStatsView] = useState<StatsView>('overview');
   const [win, setWin] = useState<TimeWindow>('all');
   const [customFrom, setCustomFrom] = useState(getFirstOfMonthStr);
   const [customTo, setCustomTo] = useState(todayStr);
@@ -220,32 +207,36 @@ export default function Stats() {
 
   const hasAnyData = entries.filter(e => e.stars > 0).length > 0;
 
-  if (!hasAnyData) {
-    return (
-      <div>
-        <div className="screen-header">
-          <h1 className="screen-title">Stats 📊</h1>
-          <p className="screen-subtitle">See your child's progress</p>
-        </div>
-        <div className="empty-state">
-          <div className="empty-state-icon">📊</div>
-          <p className="empty-state-title">No data yet</p>
-          <p className="empty-state-text">Log some sessions and stats will appear here.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const maxDow = Math.max(1, ...stats.dowCounts);
-  const pct = (n: number) => stats.totalAbsolute > 0 ? `${Math.round((n / stats.totalAbsolute) * 100)}%` : '0%';
-  const noDataForWindow = stats.totalSessions === 0 && stats.removedStars === 0;
+  const maxDow = stats ? Math.max(1, ...stats.dowCounts) : 1;
+  const pct = (n: number) => stats && stats.totalAbsolute > 0 ? `${Math.round((n / stats.totalAbsolute) * 100)}%` : '0%';
+  const noDataForWindow = !stats || (stats.totalSessions === 0 && stats.removedStars === 0);
 
   return (
     <div>
       <div className="screen-header">
         <h1 className="screen-title">Stats 📊</h1>
-        <p className="screen-subtitle">{WINDOW_LABELS[win]}</p>
       </div>
+
+      <div className="sub-tabs">
+        <button className={`sub-tab${statsView === 'overview' ? ' active' : ''}`} onClick={() => setStatsView('overview')}>
+          📊 Overview
+        </button>
+        <button className={`sub-tab${statsView === 'history' ? ' active' : ''}`} onClick={() => setStatsView('history')}>
+          🕐 History
+        </button>
+      </div>
+
+      {statsView === 'history' && <HistoryPanel />}
+
+      {statsView === 'overview' && !hasAnyData && (
+        <div className="empty-state">
+          <div className="empty-state-icon">📊</div>
+          <p className="empty-state-title">No data yet</p>
+          <p className="empty-state-text">Log some sessions and stats will appear here.</p>
+        </div>
+      )}
+
+      {statsView === 'overview' && hasAnyData && (<div>
 
       {/* ── Time window pills ── */}
       <div className="window-pills">
@@ -422,6 +413,7 @@ export default function Stats() {
           )}
         </>
       )}
+    </div>)}
     </div>
   );
 }

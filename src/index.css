@@ -1498,3 +1498,260 @@ input, textarea, select {
 .stack-lg {
   gap: 12px;
 }
+
+/* ─── Top bar ────────────────────────────────────────────────────────────── */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.top-bar-title {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.top-bar-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ─── Child selector ─────────────────────────────────────────────────────── */
+
+.child-selector-btn {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Flashcard player ───────────────────────────────────────────────────── */
+
+.fc-progress-bar {
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.fc-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--primary), var(--star));
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.fc-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 32px 20px;
+  text-align: center;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.fc-number {
+  font-size: 96px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text);
+}
+
+.fc-question {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.fc-answer {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--primary);
+  padding: 10px 20px;
+  background: var(--primary-light);
+  border-radius: var(--radius);
+}
+
+.fc-hint {
+  font-size: 14px;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.fc-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.fc-btn-correct {
+  height: 60px;
+  border-radius: var(--radius);
+  background: var(--green);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.fc-btn-wrong {
+  height: 60px;
+  border-radius: var(--radius);
+  background: var(--red-light);
+  color: var(--red);
+  font-size: 18px;
+  font-weight: 800;
+  border: 2px solid var(--red);
+}
+
+.fc-reveal-btn {
+  width: 100%;
+  height: 56px;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+/* ─── Flashcard selection ────────────────────────────────────────────────── */
+
+.fc-subject-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.fc-subject-btn {
+  height: 80px;
+  border-radius: var(--radius-lg);
+  font-size: 17px;
+  font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.fc-subject-btn.active-maths {
+  border-color: var(--teal);
+  background: var(--teal-light);
+  color: var(--teal);
+}
+
+.fc-subject-btn.active-reading {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.fc-level-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.fc-level-btn {
+  height: 40px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+
+.fc-level-btn.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.fc-level-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.fc-mode-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.fc-mode-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.fc-mode-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.fc-mode-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.fc-mode-count {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-weight: 700;
+  margin-top: 4px;
+}

@@ -52,12 +52,12 @@ const tabs: { id: Tab; label: string; icon: ReactNode }[] = [
     ),
   },
   {
-    id: 'history',
-    label: 'History',
+    id: 'flashcards',
+    label: 'Flashcards',
     icon: (
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
+        <rect x="2" y="5" width="20" height="14" rx="3" />
+        <line x1="2" y1="10" x2="22" y2="10" />
       </svg>
     ),
   },

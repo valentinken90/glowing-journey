@@ -1815,3 +1815,10 @@ input, textarea, select {
   color: #fff;
   border-color: var(--primary);
 }
+
+/* ─── Sub-tab active alias (sub-tab-active works same as sub-tab.active) ───── */
+.sub-tab.sub-tab-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}

@@ -1,12 +1,14 @@
-interface DataPoint {
-  label: string;
-  value: number;
+export interface SeriesEntry {
+  key: string;
+  values: number[];   // one value per label, parallel to labels array
+  color: string;
+  areaColor?: string;
 }
 
 interface LineChartProps {
-  data: DataPoint[];
-  color?: string;
-  areaColor?: string;
+  labels: string[];
+  series: SeriesEntry[];
+  visibleKeys?: Set<string>;   // if omitted, all series are visible
   height?: number;
   showDots?: boolean;
 }
@@ -27,38 +29,34 @@ function smoothPath(pts: [number, number][]): string {
 }
 
 export default function LineChart({
-  data,
-  color = 'var(--primary)',
-  areaColor,
+  labels,
+  series,
+  visibleKeys,
   height = 160,
   showDots = true,
 }: LineChartProps) {
-  if (data.length === 0) return null;
+  if (labels.length === 0) return null;
+
+  const visible = series.filter(s => !visibleKeys || visibleKeys.has(s.key));
 
   const plotW = W - PAD.left - PAD.right;
   const plotH = height - PAD.top - PAD.bottom;
-  const maxVal = Math.max(1, ...data.map(d => d.value));
 
-  const xOf = (i: number) => PAD.left + (data.length === 1 ? plotW / 2 : (i / (data.length - 1)) * plotW);
+  const maxVal = Math.max(
+    1,
+    ...visible.flatMap(s => s.values),
+  );
+
+  const xOf = (i: number) =>
+    PAD.left + (labels.length === 1 ? plotW / 2 : (i / (labels.length - 1)) * plotW);
   const yOf = (v: number) => PAD.top + plotH - (v / maxVal) * plotH;
 
-  const pts: [number, number][] = data.map((d, i) => [xOf(i), yOf(d.value)]);
-  const linePath = smoothPath(pts);
-
-  // Area: go down the right edge, along the bottom, back up
-  const areaPath =
-    linePath +
-    ` L ${pts[pts.length - 1][0]},${PAD.top + plotH}` +
-    ` L ${pts[0][0]},${PAD.top + plotH} Z`;
-
-  // Y-axis ticks (0 and max)
   const yTicks = [0, Math.ceil(maxVal / 2), maxVal];
 
-  // X-axis labels: show first, last, and at most 3 equally-spaced middle ones
-  const xLabelIndices = new Set<number>([0, data.length - 1]);
-  if (data.length > 4) {
-    const step = Math.floor(data.length / 3);
-    for (let i = step; i < data.length - 1; i += step) xLabelIndices.add(i);
+  const xLabelIndices = new Set<number>([0, labels.length - 1]);
+  if (labels.length > 4) {
+    const step = Math.floor(labels.length / 3);
+    for (let i = step; i < labels.length - 1; i += step) xLabelIndices.add(i);
   }
 
   return (
@@ -72,40 +70,51 @@ export default function LineChart({
       {yTicks.map(t => (
         <line
           key={t}
-          x1={PAD.left}
-          x2={PAD.left + plotW}
-          y1={yOf(t)}
-          y2={yOf(t)}
+          x1={PAD.left} x2={PAD.left + plotW}
+          y1={yOf(t)} y2={yOf(t)}
           stroke="var(--border)"
           strokeWidth="1"
           strokeDasharray={t === 0 ? undefined : '3 3'}
         />
       ))}
 
-      {/* Area fill */}
-      <path d={areaPath} fill={areaColor ?? color} opacity="0.12" />
+      {/* One area + line per visible series */}
+      {visible.map(s => {
+        const pts: [number, number][] = s.values.map((v, i) => [xOf(i), yOf(v)]);
+        const linePath = smoothPath(pts);
+        const areaPath =
+          linePath +
+          ` L ${pts[pts.length - 1][0]},${PAD.top + plotH}` +
+          ` L ${pts[0][0]},${PAD.top + plotH} Z`;
 
-      {/* Line */}
-      <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Dots */}
-      {showDots && pts.map(([x, y], i) => (
-        data[i].value > 0 && (
-          <circle key={i} cx={x} cy={y} r="3.5" fill={color} />
-        )
-      ))}
+        return (
+          <g key={s.key}>
+            <path d={areaPath} fill={s.areaColor ?? s.color} opacity="0.12" />
+            <path
+              d={linePath}
+              fill="none"
+              stroke={s.color}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {showDots && pts.map(([x, y], i) =>
+              s.values[i] > 0 ? (
+                <circle key={i} cx={x} cy={y} r="3.5" fill={s.color} />
+              ) : null,
+            )}
+          </g>
+        );
+      })}
 
       {/* Y-axis labels */}
       {yTicks.map(t => (
         <text
           key={t}
-          x={PAD.left - 4}
-          y={yOf(t) + 4}
-          textAnchor="end"
-          fontSize="9"
+          x={PAD.left - 4} y={yOf(t) + 4}
+          textAnchor="end" fontSize="9"
           fill="var(--text-faint)"
-          fontFamily="Nunito, sans-serif"
-          fontWeight="700"
+          fontFamily="Nunito, sans-serif" fontWeight="700"
         >
           {t}
         </text>
@@ -115,15 +124,12 @@ export default function LineChart({
       {[...xLabelIndices].map(i => (
         <text
           key={i}
-          x={xOf(i)}
-          y={height - 4}
-          textAnchor="middle"
-          fontSize="9"
+          x={xOf(i)} y={height - 4}
+          textAnchor="middle" fontSize="9"
           fill="var(--text-faint)"
-          fontFamily="Nunito, sans-serif"
-          fontWeight="700"
+          fontFamily="Nunito, sans-serif" fontWeight="700"
         >
-          {data[i].label}
+          {labels[i]}
         </text>
       ))}
     </svg>

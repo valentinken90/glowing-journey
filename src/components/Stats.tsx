@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { todayStr, localDateStr, pluralStars } from '../utils/helpers';
 import type { StarEntry, Redemption, StatsView } from '../types';
-import LineChart from './LineChart';
+import LineChart, { type SeriesEntry } from './LineChart';
 import HistoryPanel from './HistoryPanel';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -79,58 +79,100 @@ function filterRedemptions(redemptions: Redemption[], win: TimeWindow, from: str
   return redemptions;
 }
 
-function buildChartData(win: TimeWindow, positive: StarEntry[], from: string, to: string) {
-  const daily = new Map<string, number>();
-  for (const e of positive) daily.set(e.date, (daily.get(e.date) ?? 0) + e.stars);
+interface MultiChartData {
+  labels: string[];
+  readingMaths: number[];
+  chores: number[];
+  removed: number[];
+}
 
+function buildMultiChartData(win: TimeWindow, entries: StarEntry[], from: string, to: string): MultiChartData | null {
   if (win === 'today') return null;
+
+  const rmMap = new Map<string, number>();
+  const chMap = new Map<string, number>();
+  const reMap = new Map<string, number>();
+
+  for (const e of entries) {
+    if (e.stars > 0 && e.sessionType === 'chores') {
+      chMap.set(e.date, (chMap.get(e.date) ?? 0) + e.stars);
+    } else if (e.stars > 0) {
+      rmMap.set(e.date, (rmMap.get(e.date) ?? 0) + e.stars);
+    } else if (e.stars < 0) {
+      reMap.set(e.date, (reMap.get(e.date) ?? 0) + Math.abs(e.stars));
+    }
+  }
+
+  function toSeries(labels: string[], keys: string[]): MultiChartData {
+    return {
+      labels,
+      readingMaths: keys.map(k => rmMap.get(k) ?? 0),
+      chores: keys.map(k => chMap.get(k) ?? 0),
+      removed: keys.map(k => reMap.get(k) ?? 0),
+    };
+  }
 
   if (win === 'week') {
     const mon = getMondayStr();
-    return DOW_LABELS.map((label, i) => {
+    const labels: string[] = [];
+    const keys: string[] = [];
+    DOW_LABELS.forEach((label, i) => {
       const d = new Date(`${mon}T12:00:00`);
       d.setDate(d.getDate() + i);
-      return { label, value: daily.get(localDateStr(d)) ?? 0 };
+      labels.push(label);
+      keys.push(localDateStr(d));
     });
+    return toSeries(labels, keys);
   }
 
   if (win === 'month') {
     const now = new Date();
     const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return Array.from({ length: days }, (_, i) => {
-      const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
-      return { label: String(i + 1), value: daily.get(key) ?? 0 };
-    });
+    const labels: string[] = [];
+    const keys: string[] = [];
+    for (let i = 1; i <= days; i++) {
+      labels.push(String(i));
+      keys.push(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`);
+    }
+    return toSeries(labels, keys);
   }
 
   if (win === 'custom' && from && to) {
-    const pts: { label: string; value: number }[] = [];
+    const labels: string[] = [];
+    const keys: string[] = [];
     const end = new Date(`${to}T12:00:00`);
     const cur = new Date(`${from}T12:00:00`);
     while (cur <= end) {
-      pts.push({ label: `${cur.getDate()}/${cur.getMonth() + 1}`, value: daily.get(localDateStr(cur)) ?? 0 });
+      labels.push(`${cur.getDate()}/${cur.getMonth() + 1}`);
+      keys.push(localDateStr(cur));
       cur.setDate(cur.getDate() + 1);
     }
-    return pts;
+    return toSeries(labels, keys);
   }
 
-  // All time: weekly
-  const weekMap = new Map<string, number>();
-  for (const e of positive) {
+  // All time: weekly aggregation
+  const weekMap = new Map<string, { rm: number; ch: number; re: number }>();
+  for (const e of entries) {
     const d = new Date(`${e.date}T12:00:00`);
     const dow = d.getDay();
     const mon = new Date(d);
     mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
     const key = localDateStr(mon);
-    weekMap.set(key, (weekMap.get(key) ?? 0) + e.stars);
+    const prev = weekMap.get(key) ?? { rm: 0, ch: 0, re: 0 };
+    if (e.stars > 0 && e.sessionType === 'chores') weekMap.set(key, { ...prev, ch: prev.ch + e.stars });
+    else if (e.stars > 0) weekMap.set(key, { ...prev, rm: prev.rm + e.stars });
+    else if (e.stars < 0) weekMap.set(key, { ...prev, re: prev.re + Math.abs(e.stars) });
   }
-  return [...weekMap.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(-12)
-    .map(([key, value]) => {
+  const sorted = [...weekMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-12);
+  return {
+    labels: sorted.map(([key]) => {
       const d = new Date(`${key}T12:00:00`);
-      return { label: `${d.getDate()}/${d.getMonth() + 1}`, value };
-    });
+      return `${d.getDate()}/${d.getMonth() + 1}`;
+    }),
+    readingMaths: sorted.map(([, v]) => v.rm),
+    chores: sorted.map(([, v]) => v.ch),
+    removed: sorted.map(([, v]) => v.re),
+  };
 }
 
 const CHART_TITLE: Record<TimeWindow, string> = {
@@ -149,6 +191,9 @@ export default function Stats() {
   const [win, setWin] = useState<TimeWindow>('all');
   const [customFrom, setCustomFrom] = useState(getFirstOfMonthStr);
   const [customTo, setCustomTo] = useState(todayStr);
+  const [visibleSeries, setVisibleSeries] = useState<Set<string>>(
+    () => new Set(['readingMaths', 'chores']),
+  );
 
   const filtered = useMemo(() => filterEntries(entries, win, customFrom, customTo), [entries, win, customFrom, customTo]);
   const filteredRedemptions = useMemo(() => filterRedemptions(redemptions, win, customFrom, customTo), [redemptions, win, customFrom, customTo]);
@@ -200,10 +245,18 @@ export default function Stats() {
     [entries]
   );
 
-  const chartData = useMemo(
-    () => buildChartData(win, stats.positive, customFrom, customTo),
-    [win, stats.positive, customFrom, customTo]
+  const multiChartData = useMemo(
+    () => buildMultiChartData(win, filtered, customFrom, customTo),
+    [win, filtered, customFrom, customTo],
   );
+
+  const chartSeries: SeriesEntry[] = multiChartData
+    ? [
+        { key: 'readingMaths', values: multiChartData.readingMaths, color: 'var(--star)' },
+        { key: 'chores', values: multiChartData.chores, color: 'var(--purple)' },
+        { key: 'removed', values: multiChartData.removed, color: 'var(--red)' },
+      ]
+    : [];
 
   const hasAnyData = entries.filter(e => e.stars > 0).length > 0;
 
@@ -314,10 +367,52 @@ export default function Stats() {
           </div>
 
           {/* ── Chart ── */}
-          {chartData && chartData.length > 1 && (
+          {multiChartData && multiChartData.labels.length > 1 && (
             <div className="stats-section">
               <p className="stats-section-title">{CHART_TITLE[win]} 📈</p>
-              <LineChart data={chartData} color="var(--primary)" areaColor="var(--primary)" height={160} showDots={win === 'week'} />
+              {/* Series toggles */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                {[
+                  { key: 'readingMaths', label: '📖 Reading & Maths', color: 'var(--star)' },
+                  { key: 'chores', label: '🧹 Chores', color: 'var(--purple)' },
+                  { key: 'removed', label: '⬇️ Removed', color: 'var(--red)' },
+                ].map(({ key, label, color }) => {
+                  const on = visibleSeries.has(key);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setVisibleSeries(prev => {
+                          const next = new Set(prev);
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          return next;
+                        });
+                      }}
+                      style={{
+                        fontSize: 11,
+                        padding: '3px 10px',
+                        borderRadius: 99,
+                        border: `1.5px solid ${color}`,
+                        background: on ? color : 'transparent',
+                        color: on ? '#fff' : color,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <LineChart
+                labels={multiChartData.labels}
+                series={chartSeries}
+                visibleKeys={visibleSeries}
+                height={160}
+                showDots={win === 'week'}
+              />
             </div>
           )}
 

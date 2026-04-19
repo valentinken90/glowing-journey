@@ -14,8 +14,7 @@ interface ChildRowProps {
   child: Child;
   isCurrent: boolean;
   onSelect: () => void;
-  onRename: (name: string) => void;
-  onSetAge: (age: number | undefined) => void;
+  onSave: (name: string, age: number | undefined) => void;
   onDelete: () => void;
   canDelete: boolean;
 }
@@ -24,8 +23,7 @@ function ChildRow({
   child,
   isCurrent,
   onSelect,
-  onRename,
-  onSetAge,
+  onSave,
   onDelete,
   canDelete,
 }: ChildRowProps) {
@@ -35,9 +33,9 @@ function ChildRow({
 
   function saveEdit() {
     const trimmed = nameVal.trim();
-    if (trimmed) onRename(trimmed);
+    if (!trimmed) return;
     const parsed = parseInt(ageVal, 10);
-    onSetAge(!isNaN(parsed) && parsed > 0 ? parsed : undefined);
+    onSave(trimmed, !isNaN(parsed) && parsed > 0 ? parsed : undefined);
     setEditing(false);
   }
 
@@ -274,12 +272,9 @@ export default function ChildSelector({ showToast }: ChildSelectorProps) {
                     setOpen(false);
                     showToast(`Switched to ${child.name}`);
                   }}
-                  onRename={name => {
-                    updateChild({ ...child, name });
+                  onSave={(name, age) => {
+                    updateChild({ ...child, name, age });
                     showToast('✏️ Name updated');
-                  }}
-                  onSetAge={age => {
-                    updateChild({ ...child, age });
                   }}
                   onDelete={() => setDeleteTarget(child)}
                 />

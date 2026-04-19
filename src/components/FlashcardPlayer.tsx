@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FlashcardDeck, Flashcard, FlashcardProgress } from '../types';
 import { reinsertCard } from '../utils/flashcardScheduling';
+import DiceDisplay from './DiceDisplay';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,12 +35,14 @@ export default function FlashcardPlayer({
   const [queue, setQueue] = useState<Flashcard[]>(initialQueue);
   const [playState, setPlayState] = useState<PlayState>('question');
   const [finalAnswers, setFinalAnswers] = useState<Map<string, boolean>>(new Map());
+  const [completeResult, setCompleteResult] = useState<PlayerResult | null>(null);
 
   const isNumRec = deck.mode === 'number-recognition';
   const current = queue[0];
   const totalCards = initialQueue.length;
-  // How many unique cards have been answered so far
   const answeredCount = finalAnswers.size;
+  const sessionCorrect = [...finalAnswers.values()].filter(Boolean).length;
+  const sessionIncorrect = answeredCount - sessionCorrect;
 
   function handleReveal() {
     setPlayState('revealed');
@@ -47,26 +50,24 @@ export default function FlashcardPlayer({
 
   function handleAnswer(wasCorrect: boolean) {
     const card = current;
-
     const newFinalAnswers = new Map(finalAnswers);
     newFinalAnswers.set(card.id, wasCorrect);
     setFinalAnswers(newFinalAnswers);
 
     let nextQueue = queue.slice(1);
 
-    // Smart mode: reinsert wrong card 3 positions ahead so it comes back
+    // Smart mode: reinsert wrong card 3 positions ahead
     if (!wasCorrect && sessionType === 'smart' && nextQueue.length > 0) {
       nextQueue = reinsertCard(nextQueue, card);
     }
 
     if (nextQueue.length === 0) {
-      // Build result from final answers map (one entry per unique card)
       const cardResults = [...newFinalAnswers.entries()].map(([cardId, correct]) => ({
         cardId,
         correct,
       }));
       const finalCorrect = cardResults.filter(r => r.correct).length;
-      onComplete({
+      setCompleteResult({
         correct: finalCorrect,
         incorrect: totalCards - finalCorrect,
         total: totalCards,
@@ -78,10 +79,114 @@ export default function FlashcardPlayer({
     }
   }
 
-  // ── Card display ─────────────────────────────────────────────────────────
+  // ── Completion screen ─────────────────────────────────────────────────────
 
-  const sessionCorrect = [...finalAnswers.values()].filter(Boolean).length;
-  const sessionIncorrect = answeredCount - sessionCorrect;
+  if (completeResult) {
+    const pct =
+      completeResult.total > 0
+        ? Math.round((completeResult.correct / completeResult.total) * 100)
+        : 0;
+
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '24px 16px',
+          gap: 24,
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 64, marginBottom: 8 }}>
+            {pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪'}
+          </div>
+          <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>
+            {pct >= 80 ? 'Brilliant!' : pct >= 50 ? 'Good work!' : 'Keep practising!'}
+          </h2>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>
+            {deck.modeLabel} · {sessionType === 'smart' ? 'Smart Review' : 'All Cards'}
+          </p>
+        </div>
+
+        {/* Score card */}
+        <div
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '20px 24px',
+            width: '100%',
+            maxWidth: 340,
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 20 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--green)' }}>
+                {completeResult.correct}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>✓ Correct</div>
+            </div>
+            <div style={{ width: 1, background: 'var(--border)', margin: '0 16px' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--red)' }}>
+                {completeResult.incorrect}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>✗ To practise</div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: 'var(--bg)',
+              borderRadius: 'var(--radius-full)',
+              height: 10,
+              overflow: 'hidden',
+              marginBottom: 8,
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${pct}%`,
+                background:
+                  pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--star)' : 'var(--red)',
+                borderRadius: 'var(--radius-full)',
+                transition: 'width 0.5s ease',
+              }}
+            />
+          </div>
+          <p
+            style={{
+              textAlign: 'center',
+              margin: 0,
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--text-muted)',
+            }}
+          >
+            {pct}% correct
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 340 }}>
+          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onBack}>
+            ← Back
+          </button>
+          <button
+            className="btn btn-primary"
+            style={{ flex: 2 }}
+            onClick={() => onComplete(completeResult)}
+          >
+            ✓ Done
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Card display ─────────────────────────────────────────────────────────
 
   return (
     <div
@@ -103,11 +208,7 @@ export default function FlashcardPlayer({
             marginBottom: 8,
           }}
         >
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={onBack}
-            style={{ padding: '4px 8px' }}
-          >
+          <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ padding: '4px 8px' }}>
             ← Back
           </button>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>
@@ -144,7 +245,7 @@ export default function FlashcardPlayer({
           padding: '32px 24px',
           width: '100%',
           maxWidth: 400,
-          minHeight: 220,
+          minHeight: 240,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -157,8 +258,8 @@ export default function FlashcardPlayer({
           <>
             <div
               style={{
-                fontSize: 96,
-                fontWeight: 700,
+                fontSize: 88,
+                fontWeight: 800,
                 lineHeight: 1,
                 color: 'var(--text)',
                 letterSpacing: '-2px',
@@ -166,7 +267,8 @@ export default function FlashcardPlayer({
             >
               {current.question}
             </div>
-            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>
+            <DiceDisplay value={Number(current.question)} />
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
               What number is this?
             </p>
           </>
@@ -232,7 +334,7 @@ export default function FlashcardPlayer({
       </div>
 
       {/* Controls */}
-      {(playState === 'question' && !isNumRec) && (
+      {playState === 'question' && !isNumRec && (
         <button
           className="btn btn-primary btn-full"
           style={{ maxWidth: 400 }}

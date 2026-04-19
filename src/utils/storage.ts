@@ -1,4 +1,4 @@
-import type { StarEntry, Reward, Redemption, Child, FlashcardSession } from '../types';
+import type { StarEntry, Reward, Redemption, Child, FlashcardSession, FlashcardProgress } from '../types';
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
@@ -11,6 +11,7 @@ const KEYS = {
   CHILDREN: 'rs_children',
   CURRENT_CHILD_ID: 'rs_current_child_id',
   FLASHCARD_SESSIONS: 'rs_flashcard_sessions',
+  FLASHCARD_PROGRESS: 'rs_flashcard_progress',
 } as const;
 
 // ─── Generic helpers ──────────────────────────────────────────────────────────
@@ -76,4 +77,8 @@ export const storage = {
   // Flashcard sessions
   loadFlashcardSessions: () => load<FlashcardSession[]>(KEYS.FLASHCARD_SESSIONS, []),
   saveFlashcardSessions: (sessions: FlashcardSession[]) => save(KEYS.FLASHCARD_SESSIONS, sessions),
+
+  // Flashcard progress (spaced repetition state)
+  loadFlashcardProgress: () => load<FlashcardProgress[]>(KEYS.FLASHCARD_PROGRESS, []),
+  saveFlashcardProgress: (progress: FlashcardProgress[]) => save(KEYS.FLASHCARD_PROGRESS, progress),
 };

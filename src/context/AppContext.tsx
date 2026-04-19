@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import type { StarEntry, Reward, Redemption, Child, FlashcardSession } from '../types';
+import type { StarEntry, Reward, Redemption, Child, FlashcardSession, FlashcardProgress } from '../types';
 import { storage } from '../utils/storage';
 import { generateId, todayStr } from '../utils/helpers';
 
@@ -91,6 +91,7 @@ interface AppState {
   children: Child[];
   currentChildId: string | null;
   flashcardSessions: FlashcardSession[];
+  flashcardProgress: FlashcardProgress[];
 }
 
 type Action =
@@ -106,7 +107,8 @@ type Action =
   | { type: 'UPDATE_CHILD'; payload: Child }
   | { type: 'DELETE_CHILD'; payload: string }
   | { type: 'SET_CURRENT_CHILD'; payload: string | null }
-  | { type: 'ADD_FLASHCARD_SESSION'; payload: FlashcardSession };
+  | { type: 'ADD_FLASHCARD_SESSION'; payload: FlashcardSession }
+  | { type: 'UPSERT_CARD_PROGRESS'; payload: FlashcardProgress[] };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -163,6 +165,11 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         flashcardSessions: [action.payload, ...state.flashcardSessions],
       };
+    case 'UPSERT_CARD_PROGRESS': {
+      const updates = new Map(action.payload.map((p: FlashcardProgress) => [p.id, p]));
+      const kept = state.flashcardProgress.filter(p => !updates.has(p.id));
+      return { ...state, flashcardProgress: [...kept, ...updates.values()] };
+    }
   }
 }
 
@@ -184,6 +191,7 @@ function initState(): AppState {
   }
 
   const flashcardSessions = storage.loadFlashcardSessions();
+  const flashcardProgress = storage.loadFlashcardProgress();
 
   if (!seeded) {
     const entries = getDemoEntries(currentChildId);
@@ -198,6 +206,7 @@ function initState(): AppState {
       children,
       currentChildId,
       flashcardSessions,
+      flashcardProgress,
     };
   }
 
@@ -223,6 +232,7 @@ function initState(): AppState {
       children,
       currentChildId,
       flashcardSessions,
+      flashcardProgress,
     };
   }
 
@@ -233,6 +243,7 @@ function initState(): AppState {
     children,
     currentChildId,
     flashcardSessions,
+    flashcardProgress,
   };
 }
 
@@ -270,6 +281,8 @@ interface AppContextValue {
   setCurrentChild: (id: string) => void;
 
   addFlashcardSession: (data: Omit<FlashcardSession, 'id' | 'createdAt'>) => void;
+  flashcardProgress: FlashcardProgress[];
+  upsertCardProgress: (updates: FlashcardProgress[]) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -283,17 +296,24 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
   useEffect(() => { storage.saveChildren(state.children); }, [state.children]);
   useEffect(() => { storage.saveCurrentChildId(state.currentChildId); }, [state.currentChildId]);
   useEffect(() => { storage.saveFlashcardSessions(state.flashcardSessions); }, [state.flashcardSessions]);
+  useEffect(() => { storage.saveFlashcardProgress(state.flashcardProgress); }, [state.flashcardProgress]);
 
   const currentChild = state.currentChildId
     ? (state.children.find(c => c.id === state.currentChildId) ?? state.children[0] ?? null)
     : (state.children[0] ?? null);
 
-  // Filter entries and redemptions to current child
+  // Filter entries, redemptions, and flashcard data to current child
   const childEntries = state.entries.filter(
     e => !e.childId || e.childId === currentChild?.id
   );
   const childRedemptions = state.redemptions.filter(
     r => !r.childId || r.childId === currentChild?.id
+  );
+  const childFlashcardSessions = state.flashcardSessions.filter(
+    s => s.childId === currentChild?.id,
+  );
+  const childFlashcardProgress = state.flashcardProgress.filter(
+    p => p.childId === currentChild?.id,
   );
 
   const totalEarned = childEntries.filter(e => e.stars > 0).reduce((sum, e) => sum + e.stars, 0);
@@ -415,6 +435,10 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     [],
   );
 
+  const upsertCardProgress = useCallback((updates: FlashcardProgress[]) => {
+    dispatch({ type: 'UPSERT_CARD_PROGRESS', payload: updates });
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -423,7 +447,7 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
         redemptions: childRedemptions,
         children: state.children,
         currentChild,
-        flashcardSessions: state.flashcardSessions,
+        flashcardSessions: childFlashcardSessions,
         availableStars,
         totalEarned,
         totalRedeemed,
@@ -435,6 +459,8 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
         redeemReward, deleteRedemption,
         addChild, updateChild, deleteChild, setCurrentChild,
         addFlashcardSession,
+        flashcardProgress: childFlashcardProgress,
+        upsertCardProgress,
       }}
     >
       {reactChildren}

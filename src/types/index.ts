@@ -83,6 +83,27 @@ export interface FlashcardDeck {
   cards: Flashcard[];
 }
 
+export type FlashcardStatus = 'new' | 'learning' | 'reviewing' | 'mastered';
+export type FlashcardSessionType = 'smart' | 'free';
+
+export interface FlashcardProgress {
+  id: string;              // `${childId}::${cardId}`
+  childId: string;
+  cardId: string;
+  subject: FlashcardSubject;
+  level: FlashcardLevel;
+  mode: FlashcardMode;
+  timesSeen: number;
+  timesCorrect: number;
+  timesIncorrect: number;
+  currentStreak: number;
+  lastSeenAt: string;
+  lastResult: 'correct' | 'incorrect' | null;
+  boxNumber: number;       // Leitner box 1-6
+  nextDueAt: string;
+  status: FlashcardStatus;
+}
+
 export interface FlashcardSession {
   id: string;
   childId: string;
@@ -94,6 +115,8 @@ export interface FlashcardSession {
   total: number;
   date: string;        // "YYYY-MM-DD"
   createdAt: string;
+  sessionType?: FlashcardSessionType;
+  numberRange?: { min: number; max: number };
 }
 
 // ─── Navigation types ─────────────────────────────────────────────────────────

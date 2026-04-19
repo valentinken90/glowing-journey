@@ -1755,3 +1755,63 @@ input, textarea, select {
   font-weight: 700;
   margin-top: 4px;
 }
+
+/* ─── Flashcard smart system ─────────────────────────────────────────────── */
+
+/* Progress badges on mode cards */
+.fc-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.fc-badge-due {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.fc-badge-weak {
+  background: var(--orange-light);
+  color: var(--orange);
+}
+
+.fc-badge-new {
+  background: var(--teal-light);
+  color: var(--teal);
+}
+
+/* Stat pills on start screen */
+.fc-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fc-stat-pill-due {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.fc-stat-pill-weak {
+  background: var(--orange-light);
+  color: var(--orange);
+}
+
+.fc-stat-pill-new {
+  background: var(--teal-light);
+  color: var(--teal);
+}
+
+/* Window pill active state (for range picker) */
+.window-pill-active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}

@@ -1,222 +1,87 @@
-import { useState, useMemo } from 'react';
-import type { FlashcardDeck, Flashcard } from '../types';
-import { shuffled } from '../data/flashcardsData';
+import { useState } from 'react';
+import type { FlashcardDeck, Flashcard, FlashcardProgress } from '../types';
+import { reinsertCard } from '../utils/flashcardScheduling';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface PlayerResult {
+  correct: number;
+  incorrect: number;
+  total: number;
+  cardResults: { cardId: string; correct: boolean }[];
+}
+
 interface FlashcardPlayerProps {
   deck: FlashcardDeck;
-  onComplete: (result: { correct: number; incorrect: number; total: number }) => void;
+  initialQueue: Flashcard[];
+  sessionType: 'smart' | 'free';
+  progressMap?: Map<string, FlashcardProgress>;
+  onComplete: (result: PlayerResult) => void;
   onBack: () => void;
 }
 
-type PlayState = 'question' | 'revealed' | 'complete';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function isNumberRecognition(deck: FlashcardDeck): boolean {
-  return deck.mode === 'number-recognition';
-}
+type PlayState = 'question' | 'revealed';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function FlashcardPlayer({ deck, onComplete, onBack }: FlashcardPlayerProps) {
-  const cards = useMemo<Flashcard[]>(() => shuffled(deck.cards), [deck]);
-  const [index, setIndex] = useState(0);
+export default function FlashcardPlayer({
+  deck,
+  initialQueue,
+  sessionType,
+  onComplete,
+  onBack,
+}: FlashcardPlayerProps) {
+  const [queue, setQueue] = useState<Flashcard[]>(initialQueue);
   const [playState, setPlayState] = useState<PlayState>('question');
-  const [correct, setCorrect] = useState(0);
-  const [incorrect, setIncorrect] = useState(0);
+  const [finalAnswers, setFinalAnswers] = useState<Map<string, boolean>>(new Map());
 
-  const current = cards[index];
-  const total = cards.length;
-  const isNumRec = isNumberRecognition(deck);
+  const isNumRec = deck.mode === 'number-recognition';
+  const current = queue[0];
+  const totalCards = initialQueue.length;
+  // How many unique cards have been answered so far
+  const answeredCount = finalAnswers.size;
 
   function handleReveal() {
     setPlayState('revealed');
   }
 
-  function handleAnswer(gotIt: boolean) {
-    if (gotIt) setCorrect(c => c + 1);
-    else setIncorrect(i => i + 1);
+  function handleAnswer(wasCorrect: boolean) {
+    const card = current;
 
-    const nextIndex = index + 1;
-    if (nextIndex >= total) {
-      setPlayState('complete');
+    const newFinalAnswers = new Map(finalAnswers);
+    newFinalAnswers.set(card.id, wasCorrect);
+    setFinalAnswers(newFinalAnswers);
+
+    let nextQueue = queue.slice(1);
+
+    // Smart mode: reinsert wrong card 3 positions ahead so it comes back
+    if (!wasCorrect && sessionType === 'smart' && nextQueue.length > 0) {
+      nextQueue = reinsertCard(nextQueue, card);
+    }
+
+    if (nextQueue.length === 0) {
+      // Build result from final answers map (one entry per unique card)
+      const cardResults = [...newFinalAnswers.entries()].map(([cardId, correct]) => ({
+        cardId,
+        correct,
+      }));
+      const finalCorrect = cardResults.filter(r => r.correct).length;
       onComplete({
-        correct: gotIt ? correct + 1 : correct,
-        incorrect: gotIt ? incorrect : incorrect + 1,
-        total,
+        correct: finalCorrect,
+        incorrect: totalCards - finalCorrect,
+        total: totalCards,
+        cardResults,
       });
     } else {
-      setIndex(nextIndex);
+      setQueue(nextQueue);
       setPlayState('question');
     }
   }
 
-  function handlePlayAgain() {
-    setIndex(0);
-    setPlayState('question');
-    setCorrect(0);
-    setIncorrect(0);
-  }
-
-  // ── Complete screen ──────────────────────────────────────────────────────
-
-  if (playState === 'complete') {
-    const finalCorrect = correct;
-    const finalIncorrect = incorrect;
-    const finalTotal = finalCorrect + finalIncorrect;
-    const finalPct = finalTotal > 0 ? Math.round((finalCorrect / finalTotal) * 100) : 0;
-
-    return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '24px 16px',
-          gap: 24,
-        }}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 64, marginBottom: 8 }}>
-            {finalPct >= 80 ? '🎉' : finalPct >= 50 ? '👍' : '💪'}
-          </div>
-          <h2
-            style={{
-              margin: '0 0 4px',
-              fontSize: 22,
-              fontWeight: 700,
-              color: 'var(--text)',
-            }}
-          >
-            {finalPct >= 80
-              ? 'Brilliant!'
-              : finalPct >= 50
-              ? 'Good work!'
-              : 'Keep practising!'}
-          </h2>
-          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>
-            {deck.modeLabel} · {deck.level}
-          </p>
-        </div>
-
-        {/* Score card */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)',
-            padding: '20px 24px',
-            width: '100%',
-            maxWidth: 340,
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-around',
-              marginBottom: 20,
-            }}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  fontSize: 36,
-                  fontWeight: 700,
-                  color: 'var(--green)',
-                }}
-              >
-                {finalCorrect}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                ✓ Correct
-              </div>
-            </div>
-            <div
-              style={{
-                width: 1,
-                background: 'var(--border)',
-                margin: '0 16px',
-              }}
-            />
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  fontSize: 36,
-                  fontWeight: 700,
-                  color: 'var(--red)',
-                }}
-              >
-                {finalIncorrect}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                ✗ To practise
-              </div>
-            </div>
-          </div>
-
-          {/* Percentage bar */}
-          <div
-            style={{
-              background: 'var(--bg)',
-              borderRadius: 'var(--radius-full)',
-              height: 10,
-              overflow: 'hidden',
-              marginBottom: 8,
-            }}
-          >
-            <div
-              style={{
-                height: '100%',
-                width: `${finalPct}%`,
-                background:
-                  finalPct >= 80
-                    ? 'var(--green)'
-                    : finalPct >= 50
-                    ? 'var(--star)'
-                    : 'var(--red)',
-                borderRadius: 'var(--radius-full)',
-                transition: 'width 0.5s ease',
-              }}
-            />
-          </div>
-          <p
-            style={{
-              textAlign: 'center',
-              margin: 0,
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--text-muted)',
-            }}
-          >
-            {finalPct}% correct
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 340 }}>
-          <button
-            className="btn btn-ghost"
-            style={{ flex: 1 }}
-            onClick={onBack}
-          >
-            ← Flashcards
-          </button>
-          <button
-            className="btn btn-primary"
-            style={{ flex: 2 }}
-            onClick={handlePlayAgain}
-          >
-            🔄 Play again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // ── Card display ─────────────────────────────────────────────────────────
+
+  const sessionCorrect = [...finalAnswers.values()].filter(Boolean).length;
+  const sessionIncorrect = answeredCount - sessionCorrect;
 
   return (
     <div
@@ -245,14 +110,8 @@ export default function FlashcardPlayer({ deck, onComplete, onBack }: FlashcardP
           >
             ← Back
           </button>
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--text-muted)',
-            }}
-          >
-            {index + 1} / {total}
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>
+            {answeredCount + 1} / {totalCards}
           </span>
         </div>
         <div
@@ -266,7 +125,7 @@ export default function FlashcardPlayer({ deck, onComplete, onBack }: FlashcardP
           <div
             style={{
               height: '100%',
-              width: `${((index) / total) * 100}%`,
+              width: `${(answeredCount / totalCards) * 100}%`,
               background: 'var(--primary)',
               borderRadius: 'var(--radius-full)',
               transition: 'width 0.2s ease',
@@ -294,7 +153,6 @@ export default function FlashcardPlayer({ deck, onComplete, onBack }: FlashcardP
           textAlign: 'center',
         }}
       >
-        {/* Question */}
         {isNumRec ? (
           <>
             <div
@@ -308,93 +166,73 @@ export default function FlashcardPlayer({ deck, onComplete, onBack }: FlashcardP
             >
               {current.question}
             </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 14,
-                color: 'var(--text-muted)',
-                fontWeight: 500,
-              }}
-            >
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>
               What number is this?
             </p>
           </>
         ) : (
-          <div
-            style={{
-              fontSize: 22,
-              fontWeight: 600,
-              color: 'var(--text)',
-              lineHeight: 1.4,
-            }}
-          >
-            {current.question}
-          </div>
-        )}
+          <>
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 600,
+                color: 'var(--text)',
+                lineHeight: 1.4,
+              }}
+            >
+              {current.question}
+            </div>
 
-        {/* Answer (revealed) */}
-        {playState === 'revealed' && (
-          <div
-            style={{
-              marginTop: 8,
-              paddingTop: 16,
-              borderTop: '2px dashed var(--border)',
-              width: '100%',
-            }}
-          >
-            {isNumRec ? (
+            {playState === 'revealed' && (
               <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  color: 'var(--primary)',
-                }}
-              >
-                {current.answer}
-              </div>
-            ) : (
-              <div
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: 'var(--primary)',
-                  lineHeight: 1.4,
-                }}
-              >
-                {current.answer}
-              </div>
-            )}
-            {current.hint && playState === 'revealed' && (
-              <p
                 style={{
                   marginTop: 8,
-                  fontSize: 12,
-                  color: 'var(--text-faint)',
-                  fontStyle: 'italic',
+                  paddingTop: 16,
+                  borderTop: '2px dashed var(--border)',
+                  width: '100%',
                 }}
               >
-                💡 {current.hint}
-              </p>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 600,
+                    color: 'var(--primary)',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {current.answer}
+                </div>
+                {current.hint && (
+                  <p
+                    style={{
+                      marginTop: 8,
+                      fontSize: 12,
+                      color: 'var(--text-faint)',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    💡 {current.hint}
+                  </p>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
       {/* Session score */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 20,
-          fontSize: 14,
-          fontWeight: 600,
-        }}
-      >
-        <span style={{ color: 'var(--green)' }}>✓ {correct}</span>
-        <span style={{ color: 'var(--red)' }}>✗ {incorrect}</span>
+      <div style={{ display: 'flex', gap: 20, fontSize: 14, fontWeight: 600 }}>
+        <span style={{ color: 'var(--green)' }}>✓ {sessionCorrect}</span>
+        <span style={{ color: 'var(--red)' }}>✗ {sessionIncorrect}</span>
+        {sessionType === 'smart' && (
+          <span style={{ color: 'var(--text-faint)', fontSize: 12, fontWeight: 500 }}>
+            Smart Review
+          </span>
+        )}
       </div>
 
       {/* Controls */}
-      {playState === 'question' && (
+      {(playState === 'question' && !isNumRec) && (
         <button
           className="btn btn-primary btn-full"
           style={{ maxWidth: 400 }}
@@ -404,15 +242,8 @@ export default function FlashcardPlayer({ deck, onComplete, onBack }: FlashcardP
         </button>
       )}
 
-      {playState === 'revealed' && (
-        <div
-          style={{
-            display: 'flex',
-            gap: 12,
-            width: '100%',
-            maxWidth: 400,
-          }}
-        >
+      {(playState === 'revealed' || isNumRec) && (
+        <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 400 }}>
           <button
             className="btn btn-full"
             style={{
